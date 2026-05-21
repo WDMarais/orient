@@ -260,6 +260,103 @@ not on each other. A director for the CLI layer with ~15 commands would batch:
 
 ---
 
+## Context-switching as generative, not just costly
+
+### The cognitive model
+
+Humans are good at integrating many weak signals into a judgment under partial
+information. Bad at sustained serial context — holding multiple detailed threads
+simultaneously. Multi-stream work at the right challenge level is deliberate
+practice for exactly the right skill.
+
+The calibration matters:
+- **Too rote**: no real engagement, no training signal
+- **Too complex**: can't follow multiple threads, needs further decomposition
+- **Sweet spot**: executive-level judgment calls — non-obvious, require pattern
+  recognition, but holdable in parallel
+
+orient's natural activity model (3-5 concurrent streams at different pipeline
+phases — case-interviewer on one, implementation-writer on another) is accidentally
+well-calibrated for this. Each phase requires different cognitive engagement; the
+switching between them may reinforce both rather than degrading either.
+
+### Cross-project synthesis
+
+The brief shouldn't just surface "what to work on and what's pending" — it could
+optionally surface *what class of judgment calls is likely today* given active
+projects and current phases. "re-owm/dashboard is at architecture-proposer —
+expect interface contract decisions. cq is at harness-writer — expect edge case
+elicitation." That's a richer briefing artifact than a status dump.
+
+### The SRS feed-forward pipeline (promising, hard)
+
+```
+multi-stream work → judgment calls surfaced in real context
+    → judgment call extractor (skill) processes session notes
+    → extracts: decision, options considered, what made it non-obvious, resolution
+    → problem-instantiation-tool parameterizes into a reusable template
+    → srs-tool schedules spaced repetition
+    → flashcard: "given context X, options A/B/C — what do you do and why?"
+```
+
+**The decomposition problem**: session notes capture *what happened* (Shipped,
+Pending, Deferred) not *why the judgment went the way it did*. The `## Time sink`
+section is the closest — implicitly "I misjudged this." A dedicated `## Calls`
+section in the note format — non-obvious decisions worth revisiting, with brief
+rationale — would make extraction tractable without requiring a skill to infer
+judgment calls from outcomes.
+
+**The generalization problem**: practice problems anchored to specific instances
+aren't useful. "Should I use a worktree here?" is too narrow. "Given these
+constraints on parallel work and isolation requirements, what's the right branching
+strategy?" is a flashcard. problem-instantiation-tool's parameterization is the
+right mechanism: the template abstracts the specifics, instantiation fills them
+back in at practice time with variation.
+
+**Connection to existing tools**: srs-tool and problem-instantiation-tool already
+exist and handle the scheduling and parameterization layers. The missing pieces are
+(a) the `## Calls` capture in session notes and (b) a judgment-call extractor skill
+that reads notes and produces templates for problem-instantiation-tool. The pipeline
+is completable; the "but how though" is mostly in the extractor + template design.
+
+### Post-session hook for decision capture
+
+A PostSession hook in the agent harness could capture decision-pattern signal
+without requiring explicit `## Calls` entries. Two input streams:
+
+- **Structured** (`## Calls` in session notes) — high quality, requires discipline
+- **Inferred** (session shape: clarification rounds, redirect rate, back-and-forth
+  length per decision, response thoroughness) — free, lower fidelity, no discipline
+  required
+
+Hook writes structured signal to a log. A terminal-usage-patterns-style consumer
+reads the corpus over time and surfaces: what decision types recur, where judgment
+gets spent, what triggers redirects, whether decision quality correlates with
+session phase or project type.
+
+The two layers are independent: hook + log is infrastructure, analysis consumer is
+a separate tool. Same pattern as owm-status-cache — hook writes, consumers read,
+no tight coupling. The consumer doesn't need to exist when the hook is built.
+
+This is to-be-specced when the agent harness shape is clearer. Flag for then.
+
+### Implication for orient's session note format
+
+The existing CONVENTION.md format (Goal / Shipped / Pending / Deferred / Time sink)
+doesn't capture judgment calls. Proposed addition:
+
+```
+## Calls
+- Chose X over Y because Z — worth revisiting if [condition]
+```
+
+Omit if empty. This section is the input to the SRS feed-forward pipeline and
+feeds the cross-project synthesis brief. Should be surfaced in the case-interviewer
+session — it changes the behavioral spec for session-closer (which writes the note)
+and brief (which could surface Calls items as practice prompts).
+
+---
+
 ## External cost monitoring (not agent design)
 
 A simple external monitor — cron job polling the Anthropic usage API, email/ping
