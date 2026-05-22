@@ -340,6 +340,28 @@ no tight coupling. The consumer doesn't need to exist when the hook is built.
 
 This is to-be-specced when the agent harness shape is clearer. Flag for then.
 
+### Long-term upskilling sidecar
+
+orient produces decision artifacts as a natural side-effect of the pipeline:
+`## Calls` in session notes, design invariants in specs, key decisions in
+ARCHITECTURE.md outputs. Over time these accumulate a corpus of design reasoning
+and operator judgment that's currently lost after the session ends.
+
+A general mechanism — not coupled to any specific SRS tool — to surface that
+corpus back as upskilling signal is worth building toward. Taking SRS principles
+into account: spaced repetition, varied instantiation, retrieval over re-reading.
+Concretely: "here's a design decision from re-owm/dashboard three weeks ago —
+what would you do differently now, and why?"
+
+The connection is one-directional: orient produces, the sidecar consumes. orient
+doesn't need to know the sidecar exists. The data structures that enable it should
+be kept in mind as orient matures — specifically, keeping `## Calls` and a future
+`## Decisions` section in architecture outputs in a consistent extractable format.
+
+Wire when both ends are stable enough to have a real contract. Don't couple to
+srs-tool specifically — the right consumer may be a separate tool or a different
+mechanism entirely.
+
 ### Implication for orient's session note format
 
 The existing CONVENTION.md format (Goal / Shipped / Pending / Deferred / Time sink)
