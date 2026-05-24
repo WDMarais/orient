@@ -6,7 +6,7 @@ makes LLM sessions productive and cost-efficient across personal projects.
 
 ## Status
 
-Spec complete. Next pipeline step: `/harness-writer` against the spec files.
+Architecture complete. Next pipeline step: `/implementation-writer` against `ARCHITECTURE.md` + `tests/`.
 
 ## Spec files
 
@@ -19,6 +19,12 @@ Spec complete. Next pipeline step: `/harness-writer` against the spec files.
 | `spec-config.md` | workspace.toml management |
 | `spec-brief.md` | SOD context + queue (Haiku skill) |
 | `spec-session-note.md` | Checkpoint/close session notes (Haiku + preflight) |
+
+## Architecture
+
+| File | Purpose |
+|---|---|
+| `ARCHITECTURE.md` | Module layout, DAG, per-module interface — handoff to implementation-writer |
 
 ## Reference material
 
