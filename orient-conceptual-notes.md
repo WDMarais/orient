@@ -113,6 +113,100 @@ sequential invocation becomes the bottleneck.
 
 ---
 
+## Weekly synthesis pass
+
+Session notes accumulate per-session, but a week's worth of session notes is 600+
+lines of discourse. The natural next level of the temporal hierarchy:
+
+```
+session-closer → session note (per session)
+day-closer     → daily hub marker (per day, reads session notes)
+week-closer    → weekly pointer index (per week, reads session notes)
+```
+
+The weekly pass reads the week's session notes and produces a durable **pointer
+index** — not a summary, but card-catalog entries with enough signal to know
+whether to follow the pointer:
+
+```
+- had a back-and-forth on X; decided A for <reason>; details in [abc.md]
+- read up on Y; immediately relevant to [ticket]; durable content in [note.md]
+```
+
+The pointer entry format matters: "decided A for reason X" tells you immediately
+whether this thread is relevant to what you're looking for now. A summary tries to
+convey everything at reduced fidelity; a pointer entry is optimized for triage.
+
+**Session notes become navigational layer.** After the weekly pass, session notes
+are provenance — still there if you need full depth, but no longer the primary
+lookup target. The weekly index is what you hand an agent for "find anything on X
+from early May": bounded file count, structured pointer format, cheap scan.
+
+**Constraint propagates to session-closer.** The weekly pass can only produce
+useful pointers if session notes name specific files in Shipped bullets. "worked
+on pr-ism" is a dead pointer; "wrote `working-notes/pr-ism-rewrite-plan.md`" is
+a live one. session-closer should treat Shipped bullets as index entries for a
+downstream weekly pass — file paths required, not optional.
+
+**Hub/day/week hierarchy.** If week-closer/week-starter are added alongside the
+existing hub-closer/hub-starter, "hub" as a name becomes ambiguous (hub of what
+— a day? a week?). The natural temporal rename: hub-starter → day-starter,
+hub-closer → day-closer. "Hub" is a metaphor; the files are YYYY-MM-DD.md — it
+IS a day-level artifact. The temporal hierarchy is cleaner as day/week/session
+than hub/week/session.
+
+**Why week is the right ceiling.** Month and quarter serve a different job —
+retrospective and planning, not lookup. They're better written with intent as
+philosophy-layer notes (see below) than generated mechanically from weekly indexes.
+A monthly index would be a pointer-to-a-pointer with no added resolution; an agent
+scanning 4 weekly files answers "find anything on X from last month" in 30 seconds
+without one.
+
+---
+
+## Two layers: lookup vs. judgment
+
+The note hierarchy has two structurally different layers with different consumers
+and different write disciplines:
+
+**Lookup layer (session → day → week):** mechanical, pointer-based, generated
+from the notes below them. Consumer: an agent (or you) doing "where did we discuss
+X." The week index is the right ceiling — beyond that you're adding pointer-to-pointer
+indirection with no added resolution, and humans don't naturally think in month/quarter
+units for code lookup.
+
+**Philosophy layer (working notes, DESIGN.md-style):** written with intent, not
+generated. Evergreen until something fundamentally changes. Consumer: an agent (or
+you) opening a fresh session on a project after weeks away — needs enough context
+to reason in the right spirit, not just find a file.
+
+The philosophy layer's format is what makes it work. Broad strokes + rationale +
+one concrete grounding example:
+
+> "We use unique domains per instance because Odoo places session cookies at the
+> domain level — if two instances share a domain, logging into one logs you out of
+> the other."
+
+That's more useful than a paragraph on the architecture, because it gives you enough
+context to generalise to novel cases without having read the full spec. The concrete
+example does most of the load: it tells you the *shape* of the problem, so when you
+hit something adjacent you can reason from it rather than re-deriving from scratch.
+
+**When to write each.** You don't write a philosophy note because you finished a
+sprint — you write it when you've made a design decision whose rationale won't be
+obvious from the code and will matter the next time someone (or an agent) touches
+that area. This is the "resolved turns as dead weight" corollary applied to
+documentation: the deliberation is noise; the rationale + one grounding example is
+what's worth keeping.
+
+**Analogy to spec+harness vs DESIGN.md in owm.** spec + harness = the lookup/
+verifiable layer (specific, indexable, checkable). DESIGN.md = the philosophy layer
+(broad strokes, rationale, concrete example). The lookup layer tells you what the
+system does; the philosophy layer tells you why it works the way it does — enough
+to make good decisions in the same spirit without reading all the specs.
+
+---
+
 ## Hierarchical parallel execution model
 
 ### Structure
