@@ -658,6 +658,9 @@ non-deterministic seam (Python → Haiku → morning-brief.md and session notes)
 structurally via `BriefFrontmatter` assertions and the injectable client pattern —
 the right mitigation without requiring end-to-end Haiku calls in CI.
 
-Note for implementation-writer: AI agents have a strong pull toward horizontal layering
-(completing one module fully before touching the next). The DAG above has genuine
-parallelism at steps 6/7 and 9/10 — resist the urge to treat them sequentially.
+Note for implementation-writer: implement the DAG serially. Where a module depends on
+one not yet written, proceed speculatively — implement against the interface declared
+above, making reasonable assumptions about what the dependency will look like. If the
+dependency's actual implementation diverges from those assumptions, fix up at wire-up
+time. This is cheaper than true parallelism and avoids the coordination cost of
+splitting work across concurrent agents.

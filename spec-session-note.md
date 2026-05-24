@@ -42,6 +42,8 @@ destination.
 
 ## Session                    ← close mode only; checkpoint never writes this
 - reason: <natural-end | budget-hit | context-limit | human-stepped-away>
+- phase: <pipeline stage at close — e.g. harness-writer-complete>
+- recommended_next_phase: <override — omit if standard pipeline applies>
 - cost: ~$N.NN (estimated)
 - duration: ~Nh
 - model: haiku
