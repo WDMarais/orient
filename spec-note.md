@@ -14,7 +14,7 @@ NOTES.md is raw/verbatim — not LLM-synthesized.
 
 ```
 orient note "preflight exits 0 even when note dir is unwritable"
-  (cwd: ~/coding-projects/orient/ — matches configured project "orient")
+  (cwd: ~/proj/orient/ — matches configured project "orient")
   → appended to ~/.orient/NOTES.md:
     2026-05-22 14:30  [orient]  preflight exits 0 even when note dir is unwritable
 

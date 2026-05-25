@@ -61,7 +61,7 @@ orient status (repo-D on feat/cli, in sync with upstream/feat, +5/-3 v main)
   → repo-D   feat/cli · +5/-3 v main
 
 orient status (repo-E, path not found)
-  → repo-E   error — path not found: ~/coding-projects/missing
+  → repo-E   error — path not found: ~/proj/missing
 ```
 
 ## Targeting
@@ -98,7 +98,7 @@ orient status (no workspace.toml)
   →   orient config add-project <name> <path>
   →
   → Example:
-  →   orient config add-project my-project ~/coding-projects/my-project --pinned
+  →   orient config add-project my-project ~/proj/my-project --pinned
   →
   → This creates ~/.orient/workspace.toml and adds your first project.
 ```

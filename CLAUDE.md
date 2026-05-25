@@ -37,8 +37,8 @@ Architecture complete. Next pipeline step: `/implementation-writer` against `ARC
 
 ## What it adapts from
 
-- `~/coding-projects/agent-skills/lib/session_close_preflight.py` — preflight routing token
-- `~/coding-projects/agent-skills/lib/note_parser.py` — note parsing utilities
+- `~/proj/agent-skills/lib/session_close_preflight.py` — preflight routing token
+- `~/proj/agent-skills/lib/note_parser.py` — note parsing utilities
 - Thin fork: copy, rename `ticket→topic`, update env var default to `ORIENT_ROOT/notes`
 
 ## Tech stack

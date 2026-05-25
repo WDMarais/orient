@@ -22,7 +22,7 @@ orient sync (no workspace.toml found)
   →   orient config add-project <name> <path>
   →
   → Example:
-  →   orient config add-project my-project ~/coding-projects/my-project --pinned
+  →   orient config add-project my-project ~/proj/my-project --pinned
   →
   → This creates ~/.orient/workspace.toml and adds your first project.
 
@@ -33,7 +33,7 @@ orient sync (workspace.toml exists but no [[projects]] entries)
   →   orient config add-project <name> <path>
   →
   → Example:
-  →   orient config add-project my-project ~/coding-projects/my-project --pinned
+  →   orient config add-project my-project ~/proj/my-project --pinned
 ```
 
 ## Happy path — git repos
@@ -106,7 +106,7 @@ orient sync (auth failure)
   → repo-H   main · error — auth failed
 
 orient sync (path not found in filesystem)
-  → repo-H   error — path not found: ~/coding-projects/missing
+  → repo-H   error — path not found: ~/proj/missing
 ```
 
 ## Non-git units

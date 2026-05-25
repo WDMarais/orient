@@ -19,7 +19,7 @@ orient config
 
     Examples:
       orient config validate
-      orient config add-project my-project ~/coding-projects/my-project --pinned
+      orient config add-project my-project ~/proj/my-project --pinned
       orient config show
       $EDITOR $(orient config path)
 
@@ -36,7 +36,7 @@ orient config validate (duplicate project name)
   → error: duplicate project name "re-owm" — appears at entries 1 and 3
 
 orient config validate (project path not found)
-  → warning: project "re-owm" — path not found: ~/coding-projects/re-owm
+  → warning: project "re-owm" — path not found: ~/proj/re-owm
 
 orient config validate (unknown key in [[projects]] entry)
   → warning: unknown key "typo_key" in project "re-owm" — will be ignored
@@ -73,10 +73,10 @@ orient config show
   →   activity_model = recency
   →
   → Projects (4):
-  →   re-owm         ~/coding-projects/re-owm        pinned  push=false
-  →   agent-skills   ~/coding-projects/agent-skills          push=true
-  →   working-notes  ~/coding-projects/working-notes         push=true   vault
-  →   orient         ~/coding-projects/orient                push=false
+  →   re-owm         ~/proj/re-owm        pinned  push=false
+  →   agent-skills   ~/proj/agent-skills          push=true
+  →   working-notes  ~/proj/working-notes         push=true   vault
+  →   orient         ~/proj/orient                push=false
 
 orient config show --json
   → machine-readable effective config with all defaults resolved and paths expanded
@@ -85,28 +85,28 @@ orient config show --json
 ## orient config add-project
 
 ```
-orient config add-project re-owm ~/coding-projects/re-owm
+orient config add-project re-owm ~/proj/re-owm
   → appended to ~/.orient/workspace.toml:
       [[projects]]
       name = "re-owm"
-      path = "~/coding-projects/re-owm"
+      path = "~/proj/re-owm"
   → project "re-owm" added
 
-orient config add-project re-owm ~/coding-projects/re-owm --push --pinned
+orient config add-project re-owm ~/proj/re-owm --push --pinned
   → appended:
       [[projects]]
       name   = "re-owm"
-      path   = "~/coding-projects/re-owm"
+      path   = "~/proj/re-owm"
       push   = true
       pinned = true
 
-orient config add-project re-owm ~/coding-projects/re-owm (name already exists)
+orient config add-project re-owm ~/proj/re-owm (name already exists)
   → error: project "re-owm" already exists — edit workspace.toml directly to modify
 
-orient config add-project re-owm ~/coding-projects/nonexistent
-  → error: path not found: ~/coding-projects/nonexistent
+orient config add-project re-owm ~/proj/nonexistent
+  → error: path not found: ~/proj/nonexistent
 
-orient config add-project re-owm ~/coding-projects/re-owm (workspace.toml absent)
+orient config add-project re-owm ~/proj/re-owm (workspace.toml absent)
   → creates ~/.orient/workspace.toml with [defaults] block and the new [[projects]] entry
   → created ~/.orient/workspace.toml
   → project "re-owm" added
@@ -131,7 +131,7 @@ orient config add-project --help
   →     $EDITOR $(orient config path)
   →
   → Examples:
-  →   orient config add-project re-owm ~/coding-projects/re-owm
+  →   orient config add-project re-owm ~/proj/re-owm
   →   orient config add-project working-notes ~/notes --push --pinned
 ```
 
