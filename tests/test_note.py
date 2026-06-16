@@ -41,20 +41,7 @@ class ProjectConfig:
 # Stubs
 # ---------------------------------------------------------------------------
 
-# TODO: from orient.note import append_note, infer_tag, parse_notes_md
-def append_note(text: str, cwd: Path, orient_root: Path) -> NoteEntry:
-    """Append one observation to NOTES.md and return the parsed entry."""
-    raise NotImplementedError("orient.note not yet implemented")  # TODO: wire up
-
-
-def infer_tag(cwd: Path, configs: list[ProjectConfig]) -> str:
-    """Return the project name if cwd is inside a configured project path, else 'untagged'."""
-    raise NotImplementedError("orient.note not yet implemented")  # TODO: wire up
-
-
-def parse_notes_md(path: Path) -> list[NoteEntry]:
-    """Parse NOTES.md and return all entries in order."""
-    raise NotImplementedError("orient.note not yet implemented")  # TODO: wire up
+from orient.note import append_note, infer_tag, parse_notes_md
 
 
 # ---------------------------------------------------------------------------
