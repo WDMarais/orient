@@ -58,30 +58,15 @@ class EffectiveConfig:
 
 
 # ---------------------------------------------------------------------------
-# Stubs
+# Wired imports
 # ---------------------------------------------------------------------------
 
-# TODO: from orient.config import validate_workspace, load_effective_config, add_project_entry, config_path
-def validate_workspace(workspace_path: Path) -> ValidationResult:
-    raise NotImplementedError("orient.config not yet implemented")  # TODO: wire up
-
-
-def load_effective_config(orient_root: Path) -> EffectiveConfig:
-    raise NotImplementedError("orient.config not yet implemented")  # TODO: wire up
-
-
-def add_project_entry(
-    workspace_path: Path,
-    name: str,
-    path: str,
-    push: bool = False,
-    pinned: bool = False,
-) -> None:
-    raise NotImplementedError("orient.config not yet implemented")  # TODO: wire up
-
-
-def config_path(orient_root: Path) -> Path:
-    raise NotImplementedError("orient.config not yet implemented")  # TODO: wire up
+from orient.config import (
+    validate_workspace,
+    load_effective_config,
+    add_project_entry,
+    config_path,
+)
 
 
 # ---------------------------------------------------------------------------
