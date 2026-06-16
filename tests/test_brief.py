@@ -2,8 +2,8 @@
 
 Spec: spec-brief.md
 Brief has two layers:
-  1. Python preflight — deterministic; reads notes, builds structured token for Haiku
-  2. Haiku invocation — writes morning-brief.md; non-deterministic prose, deterministic frontmatter
+  1. Python preflight - deterministic; reads notes, builds structured token for Haiku
+  2. Haiku invocation - writes morning-brief.md; non-deterministic prose, deterministic frontmatter
 
 Tests focus on the preflight layer and the frontmatter contract. Prose content is not
 asserted beyond structural presence of required sections.
@@ -22,10 +22,10 @@ from conftest import run, make_workspace
 
 # ---------------------------------------------------------------------------
 # Sketched data model
-# TODO: fixture pattern — replace with real types from orient.brief / orient.note
+# TODO: fixture pattern - replace with real types from orient.brief / orient.note
 # ---------------------------------------------------------------------------
 
-# TODO: fixture pattern — replace with real TopicPreflight from orient.brief
+# TODO: fixture pattern - replace with real TopicPreflight from orient.brief
 @dataclass
 class TopicPreflight:
     topic: str          # "project/topic" e.g. "re-owm/mcp"
@@ -35,7 +35,7 @@ class TopicPreflight:
     deferred: list[str] = field(default_factory=list)
 
 
-# TODO: fixture pattern — replace with real PreflightToken from orient.brief
+# TODO: fixture pattern - replace with real PreflightToken from orient.brief
 @dataclass
 class PreflightToken:
     last_brief: str                 # YYYY-MM-DD
@@ -44,7 +44,7 @@ class PreflightToken:
     notes_since_last_brief: list[str] = field(default_factory=list)  # raw note lines
 
 
-# TODO: fixture pattern — replace with real TopicAction from orient.brief
+# TODO: fixture pattern - replace with real TopicAction from orient.brief
 @dataclass
 class TopicAction:
     topic: str
@@ -54,7 +54,7 @@ class TopicAction:
     priority: int
 
 
-# TODO: fixture pattern — replace with real BriefFrontmatter from orient.brief
+# TODO: fixture pattern - replace with real BriefFrontmatter from orient.brief
 @dataclass
 class BriefFrontmatter:
     date: str
@@ -78,7 +78,7 @@ def build_preflight_token(
 
 
 def get_next_action(phase: str, project: str, topic: str) -> TopicAction:
-    """Phase → next_action lookup. Mechanical — not reasoning."""
+    """Phase → next_action lookup. Mechanical - not reasoning."""
     raise NotImplementedError("orient.brief not yet implemented")  # TODO: wire up
 
 
@@ -109,7 +109,7 @@ def _write_note(
     deferred_block = "\n".join(f"- {d}" for d in (deferred or [])) or "(none)"
 
     note_path.write_text(
-        f"# {note_date} — {project}/{topic}\n\n"
+        f"# {note_date} - {project}/{topic}\n\n"
         f"## Goal\nTest session\n\n"
         f"## Shipped\n- did things\n\n"
         f"## Pending\n{pending_block}\n\n"
@@ -160,7 +160,7 @@ class TestPhaseNextActionLookup:
 
 
 # ---------------------------------------------------------------------------
-# Preflight token — structural pass
+# Preflight token - structural pass
 # ---------------------------------------------------------------------------
 
 @pytest.mark.brief
@@ -246,7 +246,7 @@ class TestPreflightToken:
 
 
 # ---------------------------------------------------------------------------
-# Brief frontmatter — output contract
+# Brief frontmatter - output contract
 # ---------------------------------------------------------------------------
 
 @pytest.mark.brief
@@ -396,7 +396,7 @@ class TestCloseReasonSurfacing:
 
 
 # ---------------------------------------------------------------------------
-# CLI output — prose section only; frontmatter not shown on stdout
+# CLI output - prose section only; frontmatter not shown on stdout
 # ---------------------------------------------------------------------------
 
 @pytest.mark.brief
@@ -408,7 +408,7 @@ class TestCliOutput:
         result = run("brief", env={"ORIENT_ROOT": str(orient_root)})  # TODO: wire up
         assert result.exit_code == 0
         # Frontmatter delimiters should not appear in stdout
-        assert "---" not in result.output or result.output.count("---") == 0  # TODO: tighten — spec says frontmatter not shown on stdout
+        assert "---" not in result.output or result.output.count("---") == 0  # TODO: tighten - spec says frontmatter not shown on stdout
 
     def test_morning_brief_md_written_to_orient_root(self, orient_root):
         make_workspace(orient_root, [{"name": "re-owm", "path": "/tmp/re-owm"}])
@@ -453,5 +453,5 @@ class TestErrorCases:
 #   different messages ("orient is configured but no session notes found" vs the first-run
 #   message); test checks for key strings rather than exact message
 # _write_note phase_line: the spec shows phase as part of the ## Session block but the
-#   exact field name ("phase:") is not shown in the spec note format — inferred from
+#   exact field name ("phase:") is not shown in the spec note format - inferred from
 #   the preflight token structure; architecture must confirm phase is stored in the note

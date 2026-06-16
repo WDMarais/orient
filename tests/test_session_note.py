@@ -4,8 +4,8 @@ Spec: spec-session-note.md
 One operation, two modes: checkpoint (mid-session) and close (terminal).
 
 Layers:
-  1. Python preflight — deterministic; resolves note path, produces routing token
-  2. Haiku — writes the note; rollforward and ## Session are constrained/verbatim
+  1. Python preflight - deterministic; resolves note path, produces routing token
+  2. Haiku - writes the note; rollforward and ## Session are constrained/verbatim
 
 Rollforward invariant: the latest note is always fully self-contained.
 Pending re-appears verbatim unless landed in Shipped. Deferred re-appears verbatim.
@@ -25,10 +25,10 @@ from conftest import run, make_workspace
 
 # ---------------------------------------------------------------------------
 # Sketched data model
-# TODO: fixture pattern — replace with real types from orient.session_note / orient.preflight
+# TODO: fixture pattern - replace with real types from orient.session_note / orient.preflight
 # ---------------------------------------------------------------------------
 
-# TODO: fixture pattern — replace with real PreflightResult from orient.preflight
+# TODO: fixture pattern - replace with real PreflightResult from orient.preflight
 @dataclass
 class PreflightResult:
     mode: str                           # "new" | "append" | "no-prev" | "ambiguous"
@@ -40,7 +40,7 @@ class PreflightResult:
     error: Optional[str] = None         # populated for error:* modes
 
 
-# TODO: fixture pattern — replace with real SessionSection from orient.session_note
+# TODO: fixture pattern - replace with real SessionSection from orient.session_note
 @dataclass
 class SessionSection:
     reason: str     # "natural-end" | "budget-hit" | "context-limit" | "human-stepped-away"
@@ -49,7 +49,7 @@ class SessionSection:
     model: str = "haiku"
 
 
-# TODO: fixture pattern — replace with real ParsedNote from orient.session_note
+# TODO: fixture pattern - replace with real ParsedNote from orient.session_note
 @dataclass
 class ParsedNote:
     date: str
@@ -67,19 +67,8 @@ class ParsedNote:
 # Stubs
 # ---------------------------------------------------------------------------
 
-# TODO: from orient.preflight import run_preflight
-def run_preflight(
-    project: str,
-    topic: str,
-    mode: str,              # "checkpoint" | "close"
-    orient_root: Path,
-) -> PreflightResult:
-    raise NotImplementedError("orient.preflight not yet implemented")  # TODO: wire up
-
-
-# TODO: from orient.session_note import parse_note
-def parse_note(path: Path) -> ParsedNote:
-    raise NotImplementedError("orient.session_note not yet implemented")  # TODO: wire up
+from orient.preflight import run_preflight
+from orient.session_note import parse_note
 
 
 # ---------------------------------------------------------------------------
@@ -111,7 +100,7 @@ def _write_prev_note(
     deferred_lines = "\n".join(f"- {d}" for d in (deferred or []))
 
     path.write_text(
-        f"# {note_date} — {project}/{topic}\n\n"
+        f"# {note_date} - {project}/{topic}\n\n"
         f"## Goal\nPrevious session goal\n\n"
         f"## Shipped\n- previous shipped item\n\n"
         f"## Pending\n{pending_lines or '(none)'}\n\n"
@@ -126,7 +115,7 @@ def _write_prev_note(
 
 
 # ---------------------------------------------------------------------------
-# Preflight — routing token
+# Preflight - routing token
 # ---------------------------------------------------------------------------
 
 @pytest.mark.session_note
@@ -155,7 +144,7 @@ class TestPreflight:
         make_workspace(orient_root, [{"name": "orient", "path": "/tmp/orient"}])
         today_path = _note_path(orient_root, "orient", "cli", _today())
         today_path.parent.mkdir(parents=True, exist_ok=True)
-        today_path.write_text(f"# {_today()} — orient/cli\n\n## Goal\nToday session\n")
+        today_path.write_text(f"# {_today()} - orient/cli\n\n## Goal\nToday session\n")
 
         result = run_preflight("orient", "cli", "checkpoint", orient_root)  # TODO: wire up
         assert result.mode == "append"
@@ -187,7 +176,7 @@ class TestCheckpointMode:
                          pending=["finish sync cases", "write brief cases"],
                          deferred=["hub-marker equivalent → dropped"])
 
-        result = run("session-note", "checkpoint", "orient", "cli",  # TODO: wire up — project/topic passing is fixture pattern
+        result = run("session-note", "checkpoint", "orient", "cli",  # TODO: wire up - project/topic passing is fixture pattern
                      env={"ORIENT_ROOT": str(orient_root)})  # TODO: wire up
         assert result.exit_code == 0
 
@@ -231,7 +220,7 @@ class TestCheckpointMode:
         make_workspace(orient_root, [{"name": "orient", "path": "/tmp/orient"}])
         today_path = _note_path(orient_root, "orient", "cli", _today())
         today_path.parent.mkdir(parents=True, exist_ok=True)
-        today_path.write_text(f"# {_today()} — orient/cli\n\n## Goal\nToday\n\n## Pending\n- item\n")
+        today_path.write_text(f"# {_today()} - orient/cli\n\n## Goal\nToday\n\n## Pending\n- item\n")
 
         run("session-note", "checkpoint", "orient", "cli",  # TODO: wire up
             env={"ORIENT_ROOT": str(orient_root)})  # TODO: wire up
@@ -243,7 +232,7 @@ class TestCheckpointMode:
         make_workspace(orient_root, [{"name": "orient", "path": "/tmp/orient"}])
         today_path = _note_path(orient_root, "orient", "cli", _today())
         today_path.parent.mkdir(parents=True, exist_ok=True)
-        original_content = f"# {_today()} — orient/cli\n\n## Goal\nToday\n\n## Pending\n- original item\n"
+        original_content = f"# {_today()} - orient/cli\n\n## Goal\nToday\n\n## Pending\n- original item\n"
         today_path.write_text(original_content)
 
         run("session-note", "checkpoint", "orient", "cli",  # TODO: wire up
@@ -314,8 +303,8 @@ class TestCloseMode:
         today_path = _note_path(orient_root, "orient", "cli", _today())
         today_path.parent.mkdir(parents=True, exist_ok=True)
         today_path.write_text(
-            f"# {_today()} — orient/cli\n\n## Goal\nToday\n\n## Pending\n- item\n\n"
-            f"### Checkpoint 1 — 10:00\n- progress note\n"
+            f"# {_today()} - orient/cli\n\n## Goal\nToday\n\n## Pending\n- item\n\n"
+            f"### Checkpoint 1 - 10:00\n- progress note\n"
         )
 
         run("session-note", "close", "orient", "cli",  # TODO: wire up
@@ -351,7 +340,7 @@ class TestRollforwardInvariant:
             env={"ORIENT_ROOT": str(orient_root)})  # TODO: wire up
 
         note = parse_note(_note_path(orient_root, "orient", "cli", _today()))  # TODO: wire up
-        # Either item is in Shipped, or it re-appears in Pending — never silently absent
+        # Either item is in Shipped, or it re-appears in Pending - never silently absent
         all_items = note.shipped + note.pending
         assert "do the thing" in all_items
 
@@ -386,7 +375,7 @@ class TestRollforwardInvariant:
 @pytest.mark.session_note
 class TestNotesSweep:
     def test_close_appends_flagged_items_to_notes_md(self):
-        assert False, "spec gap — NOTES.md sweep content is determined by Haiku reading session context; no mechanism to inject known-flagged items without mocking Haiku or a real session fixture"
+        assert False, "spec gap - NOTES.md sweep content is determined by Haiku reading session context; no mechanism to inject known-flagged items without mocking Haiku or a real session fixture"
 
     def test_close_no_flagged_items_notes_md_unchanged(self, orient_root):
         make_workspace(orient_root, [{"name": "orient", "path": "/tmp/orient"}])
@@ -399,7 +388,7 @@ class TestNotesSweep:
             env={"ORIENT_ROOT": str(orient_root)})  # TODO: wire up
 
         # Sweep runs silently; notes not appended when nothing flagged
-        # Content may or may not change depending on Haiku — this is a weak assertion
+        # Content may or may not change depending on Haiku - this is a weak assertion
         assert notes_path.exists()
 
 
@@ -412,8 +401,8 @@ class TestPreflightEdgeCases:
     def test_ambiguous_mode_surfaces_reason_and_suggests_sonnet(self, orient_root):
         make_workspace(orient_root, [{"name": "orient", "path": "/tmp/orient"}])
         # Ambiguous state: create conditions preflight cannot resolve
-        # (e.g. multiple notes for same day — this is an architecture decision on what triggers ambiguous)
-        # TODO: fixture pattern — ambiguous trigger condition is architecture decision
+        # (e.g. multiple notes for same day - this is an architecture decision on what triggers ambiguous)
+        # TODO: fixture pattern - ambiguous trigger condition is architecture decision
 
         result = run_preflight("orient", "cli", "checkpoint", orient_root)  # TODO: wire up
         if result.mode == "ambiguous":
@@ -426,7 +415,7 @@ class TestPreflightEdgeCases:
 
     def test_unrecognised_preflight_output_prints_raw_and_stops(self, orient_root):
         make_workspace(orient_root, [{"name": "orient", "path": "/tmp/orient"}])
-        # TODO: fixture pattern — need a way to inject a bad preflight response;
+        # TODO: fixture pattern - need a way to inject a bad preflight response;
         # this test documents the invariant but cannot be wired up until
         # the preflight/Haiku boundary is settled by architecture-proposer
         result = run_preflight("orient", "cli", "checkpoint", orient_root)  # TODO: wire up
@@ -439,17 +428,17 @@ class TestPreflightEdgeCases:
 
 # === SPEC GAPS ===
 # TestNotesSweep.test_close_appends_flagged_items_to_notes_md: the sweep is driven by
-#   Haiku reading the session context — we cannot assert specific swept content without
+#   Haiku reading the session context - we cannot assert specific swept content without
 #   knowing what Haiku flagged; test has a structural bug (result not in scope) that
 #   must be fixed once the CLI boundary is settled; marked with noqa to stay importable
 # TestPreflightEdgeCases.test_ambiguous_mode: spec does not specify what conditions
-#   produce mode:ambiguous; fixture pattern marked — architecture must define this
+#   produce mode:ambiguous; fixture pattern marked - architecture must define this
 # TestPreflightEdgeCases.test_unrecognised_preflight_output: no mechanism to inject
 #   bad preflight output at test time; documents invariant only
 # run() call signature for session-note: spec shows /session-note checkpoint but CLI
-#   arg passing for project/topic is not specified — all session-note run() calls use
+#   arg passing for project/topic is not specified - all session-note run() calls use
 #   positional args ("orient", "cli") as a fixture pattern; architecture must settle
 #   how project/topic are passed (CLI args, cwd inference, or env var)
-# SessionSection.model field: spec says "model: haiku" in ## Session — unclear whether
+# SessionSection.model field: spec says "model: haiku" in ## Session - unclear whether
 #   this is hardcoded or read from the actual invocation; test asserts field exists,
 #   not its value
