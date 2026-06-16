@@ -92,8 +92,8 @@ def compute_status(
     if not project_path.exists():
         return StatusResult(name=config.name, error="path not found")
 
-    unit_type = config.unit_type if hasattr(config, "unit_type") else "git"
-    if str(unit_type) == "vault":
+    unit_type = getattr(config.unit_type, "value", str(config.unit_type)) if hasattr(config, "unit_type") else "git"
+    if unit_type == "vault":
         return _vault_status(config, prior_state)
 
     return _git_status(config, prior_state, local_only, freshness_window_minutes)

@@ -1,6 +1,7 @@
 """Session note write logic - parse_note, run_session_note."""
 from __future__ import annotations
 
+import os
 import sys
 from dataclasses import dataclass, field
 from datetime import date
@@ -8,6 +9,8 @@ from pathlib import Path
 from typing import Optional
 
 import anthropic
+
+_TEMPLATE_DIR = Path(__file__).parent / "templates"
 
 from orient.lib.note_parser import (
     parse_sections,
@@ -112,28 +115,16 @@ def _build_checkpoint_prompt(
         except OSError:
             pass
 
-    return f"""Write a checkpoint session note for {project}/{topic} dated {today}.
-
-Mode: {preflight_mode}
-Previous note ({pending_count} pending, {deferred_count} deferred items):
-{prev_content or "(none)"}
-
-Format:
-# {today} - {project}/{topic}
-
-## Goal
-(carry forward from previous or start fresh)
-
-## Shipped
-(what was completed so far this session)
-
-## Pending
-(roll forward all unresolved pending items verbatim)
-
-## Deferred
-(roll forward all deferred items verbatim)
-
-Write only the note content, nothing else."""
+    template = (_TEMPLATE_DIR / "checkpoint_prompt.md").read_text()
+    return template.format(
+        project=project,
+        topic=topic,
+        today=today,
+        preflight_mode=preflight_mode,
+        pending_count=pending_count,
+        deferred_count=deferred_count,
+        prev_content=prev_content or "(none)",
+    )
 
 
 def _build_close_prompt(
@@ -156,34 +147,42 @@ def _build_close_prompt(
 
     existing = f"\nExisting today note to append to:\n{existing_content}\n" if existing_content else ""
 
-    return f"""Write a closing session note for {project}/{topic} dated {today}.
+    template = (_TEMPLATE_DIR / "close_prompt.md").read_text()
+    return template.format(
+        project=project,
+        topic=topic,
+        today=today,
+        preflight_mode=preflight_mode,
+        reason=reason,
+        pending_count=pending_count,
+        deferred_count=deferred_count,
+        prev_content=prev_content or "(none)",
+        existing=existing,
+    )
 
-Mode: {preflight_mode}
-Close reason: {reason}
-Previous note ({pending_count} pending, {deferred_count} deferred items):
-{prev_content or "(none)"}
-{existing}
-Format (full note, not just the session section):
-# {today} - {project}/{topic}
 
-## Goal
-(carry forward or describe session goal)
-
-## Shipped
-(what was completed)
-
-## Pending
-(roll forward all unresolved pending items verbatim; omit only items that appear in Shipped)
-
-## Deferred
-(roll forward all deferred items verbatim)
-
-## Session
-- reason: {reason}
-- phase: (current pipeline phase)
-- model: haiku
-
-Write only the note content, nothing else."""
+def _write_template_note(
+    note_path: Path,
+    project: str,
+    topic: str,
+    today: str,
+    mode: str,
+    reason: str,
+    prev_parsed: Optional["ParsedNote"] = None,
+) -> None:
+    """Write a deterministic rollforward note without Haiku."""
+    pending_block = "\n".join(f"- {p}" for p in (prev_parsed.pending if prev_parsed else [])) or "(none)"
+    deferred_block = "\n".join(f"- {d}" for d in (prev_parsed.deferred if prev_parsed else [])) or "(none)"
+    content = (
+        f"# {today} - {project}/{topic}\n\n"
+        f"## Goal\n(carry forward from previous)\n\n"
+        f"## Shipped\n(nothing yet)\n\n"
+        f"## Pending\n{pending_block}\n\n"
+        f"## Deferred\n{deferred_block}\n"
+    )
+    if mode == "close":
+        content += f"\n## Session\n- reason: {reason}\n- model: haiku\n"
+    note_path.write_text(content)
 
 
 def run_session_note(
@@ -194,8 +193,9 @@ def run_session_note(
     reason: str = "natural-end",
     client: Optional[anthropic.Anthropic] = None,
 ) -> None:
-    """Run preflight, build prompt, call Haiku, write note."""
-    if client is None:
+    """Run preflight, build prompt, write note (via Haiku or template fallback)."""
+    use_haiku = client is not None or bool(os.getenv("ANTHROPIC_API_KEY"))
+    if use_haiku and client is None:
         client = anthropic.Anthropic()
 
     preflight = run_preflight(project, topic, mode, orient_root)
@@ -213,15 +213,23 @@ def run_session_note(
 
     if mode == "checkpoint":
         if preflight.mode == "append":
-            # Append checkpoint block to existing today note
-            existing = note_path.read_text() if note_path.exists() else ""
             checkpoint_n = preflight.append_pass or 1
             checkpoint_block = f"\n### Checkpoint {checkpoint_n} - {preflight.called_at or ''}\n"
             with note_path.open("a") as f:
                 f.write(checkpoint_block)
             return
 
-        # new or no-prev: write fresh note via Haiku
+        # new or no-prev
+        if not use_haiku:
+            prev_parsed = None
+            if preflight.prev_path:
+                try:
+                    prev_parsed = parse_note(Path(preflight.prev_path))
+                except Exception:
+                    pass
+            _write_template_note(note_path, project, topic, today, mode, reason, prev_parsed)
+            return
+
         prompt = _build_checkpoint_prompt(
             preflight.mode,
             preflight.prev_path,
@@ -231,15 +239,32 @@ def run_session_note(
             project,
             topic,
         )
-        response = client.messages.create(
+        response = client.messages.create(  # type: ignore[union-attr]
             model="claude-haiku-4-5-20251001",
             max_tokens=2048,
             messages=[{"role": "user", "content": prompt}],
         )
-        note_content = response.content[0].text
-        note_path.write_text(note_content)
+        note_path.write_text(response.content[0].text)
 
     else:  # close
+        if preflight.mode == "append" and note_path.exists():
+            # Append session section only — no Haiku needed
+            session_section = f"\n## Session\n- reason: {reason}\n- model: haiku\n"
+            with note_path.open("a") as f:
+                f.write(session_section)
+            return
+
+        # new or no-prev
+        if not use_haiku:
+            prev_parsed = None
+            if preflight.prev_path:
+                try:
+                    prev_parsed = parse_note(Path(preflight.prev_path))
+                except Exception:
+                    pass
+            _write_template_note(note_path, project, topic, today, mode, reason, prev_parsed)
+            return
+
         existing_content = None
         if preflight.mode == "append" and note_path.exists():
             existing_content = note_path.read_text()
@@ -255,17 +280,9 @@ def run_session_note(
             reason,
             existing_content,
         )
-        response = client.messages.create(
+        response = client.messages.create(  # type: ignore[union-attr]
             model="claude-haiku-4-5-20251001",
             max_tokens=4096,
             messages=[{"role": "user", "content": prompt}],
         )
-        note_content = response.content[0].text
-
-        if preflight.mode == "append" and existing_content:
-            # Append session section to existing note
-            session_section = f"\n## Session\n- reason: {reason}\n- model: haiku\n"
-            with note_path.open("a") as f:
-                f.write(session_section)
-        else:
-            note_path.write_text(note_content)
+        note_path.write_text(response.content[0].text)

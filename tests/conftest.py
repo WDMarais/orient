@@ -7,6 +7,11 @@ from pathlib import Path
 from typing import Optional
 
 import pytest
+from typer.testing import CliRunner
+
+from orient.cli import app
+
+_runner = CliRunner()
 
 
 @dataclass
@@ -15,17 +20,9 @@ class InvokeResult:
     output: str
 
 
-# TODO: from orient.cli import app
-# TODO: from typer.testing import CliRunner
-# TODO: _runner = CliRunner()
 def run(*args: str, env: Optional[dict[str, str]] = None, input: Optional[str] = None) -> InvokeResult:
-    """Invoke the orient CLI with the given args.
-
-    Stub until orient.cli exists. Replace body with:
-        result = _runner.invoke(app, list(args), env=env, input=input)
-        return InvokeResult(result.exit_code, result.output)
-    """
-    raise NotImplementedError("orient.cli not yet implemented")  # TODO: wire up
+    result = _runner.invoke(app, list(args), env=env, input=input)
+    return InvokeResult(result.exit_code, result.output)
 
 
 # ---------------------------------------------------------------------------

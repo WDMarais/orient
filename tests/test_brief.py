@@ -10,80 +10,22 @@ asserted beyond structural presence of required sections.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from datetime import date, timedelta
 from pathlib import Path
-from typing import Optional
 
 import pytest
 
 from conftest import run, make_workspace
 
-
-# ---------------------------------------------------------------------------
-# Sketched data model
-# TODO: fixture pattern - replace with real types from orient.brief / orient.note
-# ---------------------------------------------------------------------------
-
-# TODO: fixture pattern - replace with real TopicPreflight from orient.brief
-@dataclass
-class TopicPreflight:
-    topic: str          # "project/topic" e.g. "re-owm/mcp"
-    note_path: str
-    phase: str          # e.g. "harness-writer-complete", "case-interviewer-in-progress"
-    pending: list[str] = field(default_factory=list)
-    deferred: list[str] = field(default_factory=list)
-
-
-# TODO: fixture pattern - replace with real PreflightToken from orient.brief
-@dataclass
-class PreflightToken:
-    last_brief: str                 # YYYY-MM-DD
-    active_topics: int
-    topics: list[TopicPreflight]
-    notes_since_last_brief: list[str] = field(default_factory=list)  # raw note lines
-
-
-# TODO: fixture pattern - replace with real TopicAction from orient.brief
-@dataclass
-class TopicAction:
-    topic: str
-    phase: str
-    skill: str
-    invocation: str
-    priority: int
-
-
-# TODO: fixture pattern - replace with real BriefFrontmatter from orient.brief
-@dataclass
-class BriefFrontmatter:
-    date: str
-    last_brief: str
-    active_topics: int
-    next_actions: list[TopicAction]
-    notes_unreviewed: int
-
-
-# ---------------------------------------------------------------------------
-# Stubs
-# ---------------------------------------------------------------------------
-
-# TODO: from orient.brief import build_preflight_token, get_next_action, parse_brief_frontmatter, run_brief
-def build_preflight_token(
-    orient_root: Path,
-    last_brief_date: Optional[str] = None,
-    active_days: int = 14,
-) -> PreflightToken:
-    raise NotImplementedError("orient.brief not yet implemented")  # TODO: wire up
-
-
-def get_next_action(phase: str, project: str, topic: str) -> TopicAction:
-    """Phase → next_action lookup. Mechanical - not reasoning."""
-    raise NotImplementedError("orient.brief not yet implemented")  # TODO: wire up
-
-
-def parse_brief_frontmatter(brief_path: Path) -> BriefFrontmatter:
-    raise NotImplementedError("orient.brief not yet implemented")  # TODO: wire up
+from orient.brief import (
+    TopicPreflight,
+    PreflightToken,
+    TopicAction,
+    BriefFrontmatter,
+    build_preflight_token,
+    get_next_action,
+    parse_brief_frontmatter,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -145,16 +87,16 @@ class TestPhaseNextActionLookup:
         ("implementation-writer-complete","verify",              "/verify"),
     ])
     def test_phase_maps_to_correct_skill_and_invocation(self, phase, expected_skill, expected_invocation_fragment):
-        action = get_next_action(phase, "re-owm", "mcp")  # TODO: wire up
+        action = get_next_action(phase, "re-owm", "mcp")
         assert action.skill == expected_skill
         assert expected_invocation_fragment in action.invocation
 
     def test_unknown_phase_maps_to_open_note_action(self):
-        action = get_next_action("unknown", "re-owm", "mcp")  # TODO: wire up
+        action = get_next_action("unknown", "re-owm", "mcp")
         assert "open" in action.invocation or action.skill == "unknown"  # TODO: tighten once spec gap resolved
 
     def test_invocation_includes_project_and_topic_for_skill_commands(self):
-        action = get_next_action("harness-writer-complete", "re-owm", "mcp")  # TODO: wire up
+        action = get_next_action("harness-writer-complete", "re-owm", "mcp")
         assert "re-owm" in action.invocation
         assert "mcp" in action.invocation
 
@@ -169,7 +111,7 @@ class TestPreflightToken:
         make_workspace(orient_root, [{"name": "re-owm", "path": "/tmp/re-owm"}])
         _write_note(orient_root, "re-owm", "mcp", _days_ago(3), phase_line="harness-writer-complete")
 
-        token = build_preflight_token(orient_root, active_days=14)  # TODO: wire up
+        token = build_preflight_token(orient_root, active_days=14)
         topics = [t.topic for t in token.topics]
         assert "re-owm/mcp" in topics
 
@@ -177,7 +119,7 @@ class TestPreflightToken:
         make_workspace(orient_root, [{"name": "re-owm", "path": "/tmp/re-owm"}])
         _write_note(orient_root, "re-owm", "old-topic", _days_ago(30), phase_line="natural-end")
 
-        token = build_preflight_token(orient_root, active_days=14)  # TODO: wire up
+        token = build_preflight_token(orient_root, active_days=14)
         topics = [t.topic for t in token.topics]
         assert "re-owm/old-topic" not in topics
 
@@ -185,7 +127,7 @@ class TestPreflightToken:
         make_workspace(orient_root, [{"name": "re-owm", "path": "/tmp/re-owm", "pinned": True}])
         _write_note(orient_root, "re-owm", "dormant", _days_ago(30), phase_line="natural-end")
 
-        token = build_preflight_token(orient_root, active_days=14)  # TODO: wire up
+        token = build_preflight_token(orient_root, active_days=14)
         topics = [t.topic for t in token.topics]
         assert "re-owm/dormant" in topics
 
@@ -197,7 +139,7 @@ class TestPreflightToken:
         _write_note(orient_root, "re-owm", "mcp", _days_ago(3))
         _write_note(orient_root, "orient", "cli", _days_ago(1))
 
-        token = build_preflight_token(orient_root, active_days=14)  # TODO: wire up
+        token = build_preflight_token(orient_root, active_days=14)
         assert token.active_topics == len(token.topics) == 2
 
     def test_pending_items_extracted_from_note(self, orient_root):
@@ -205,7 +147,7 @@ class TestPreflightToken:
         _write_note(orient_root, "re-owm", "mcp", _days_ago(2),
                     pending=["run /architecture-proposer"])
 
-        token = build_preflight_token(orient_root, active_days=14)  # TODO: wire up
+        token = build_preflight_token(orient_root, active_days=14)
         topic = next(t for t in token.topics if t.topic == "re-owm/mcp")
         assert "run /architecture-proposer" in topic.pending
 
@@ -214,7 +156,7 @@ class TestPreflightToken:
         _write_note(orient_root, "orient", "cli", _days_ago(1),
                     deferred=["hub-marker equivalent → dropped"])
 
-        token = build_preflight_token(orient_root, active_days=14)  # TODO: wire up
+        token = build_preflight_token(orient_root, active_days=14)
         topic = next(t for t in token.topics if t.topic == "orient/cli")
         assert any("hub-marker" in d for d in topic.deferred)
 
@@ -226,7 +168,7 @@ class TestPreflightToken:
             f"{_today()} 14:31  [untagged]  sync stalled on unreachable remote\n"
         )
 
-        token = build_preflight_token(orient_root, last_brief_date=_days_ago(1))  # TODO: wire up
+        token = build_preflight_token(orient_root, last_brief_date=_days_ago(1))
         assert len(token.notes_since_last_brief) == 2
 
     def test_notes_before_last_brief_not_included(self, orient_root):
@@ -235,13 +177,13 @@ class TestPreflightToken:
         old_date = _days_ago(5)
         notes_path.write_text(f"{old_date} 10:00  [orient]  old note\n")
 
-        token = build_preflight_token(orient_root, last_brief_date=_days_ago(2))  # TODO: wire up
+        token = build_preflight_token(orient_root, last_brief_date=_days_ago(2))
         assert len(token.notes_since_last_brief) == 0
 
     def test_absent_notes_md_gives_zero_unreviewed(self, orient_root):
         make_workspace(orient_root, [])
 
-        token = build_preflight_token(orient_root, last_brief_date=_days_ago(1))  # TODO: wire up
+        token = build_preflight_token(orient_root, last_brief_date=_days_ago(1))
         assert len(token.notes_since_last_brief) == 0
 
 
@@ -255,8 +197,8 @@ class TestBriefFrontmatter:
         make_workspace(orient_root, [{"name": "re-owm", "path": "/tmp/re-owm"}])
         _write_note(orient_root, "re-owm", "mcp", _days_ago(1), phase_line="harness-writer-complete")
 
-        result = run("brief", env={"ORIENT_ROOT": str(orient_root)})  # TODO: wire up
-        fm = parse_brief_frontmatter(orient_root / "morning-brief.md")  # TODO: wire up
+        result = run("brief", env={"ORIENT_ROOT": str(orient_root)})
+        fm = parse_brief_frontmatter(orient_root / "morning-brief.md")
         assert fm.date == _today()
         assert fm.active_topics >= 1
         assert isinstance(fm.next_actions, list)
@@ -274,8 +216,8 @@ class TestBriefFrontmatter:
         _write_note(orient_root, "orient", "cli", _days_ago(1), phase_line="case-interviewer-in-progress",
                     pending=["finish sync cases"])
 
-        result = run("brief", env={"ORIENT_ROOT": str(orient_root)})  # TODO: wire up
-        fm = parse_brief_frontmatter(orient_root / "morning-brief.md")  # TODO: wire up
+        result = run("brief", env={"ORIENT_ROOT": str(orient_root)})
+        fm = parse_brief_frontmatter(orient_root / "morning-brief.md")
         priorities = [a.priority for a in fm.next_actions]
         assert priorities == sorted(priorities)   # ascending priority order
 
@@ -283,8 +225,8 @@ class TestBriefFrontmatter:
         make_workspace(orient_root, [{"name": "re-owm", "path": "/tmp/re-owm"}])
         _write_note(orient_root, "re-owm", "mcp", _days_ago(1), phase_line="harness-writer-complete")
 
-        result = run("brief", env={"ORIENT_ROOT": str(orient_root)})  # TODO: wire up
-        fm = parse_brief_frontmatter(orient_root / "morning-brief.md")  # TODO: wire up
+        result = run("brief", env={"ORIENT_ROOT": str(orient_root)})
+        fm = parse_brief_frontmatter(orient_root / "morning-brief.md")
         mcp_action = next(a for a in fm.next_actions if "mcp" in a.topic)
         assert mcp_action.priority == 1
 
@@ -295,16 +237,16 @@ class TestBriefFrontmatter:
             f"{_today()} 10:01  [untagged]  note two\n"
         )
 
-        result = run("brief", env={"ORIENT_ROOT": str(orient_root)})  # TODO: wire up
-        fm = parse_brief_frontmatter(orient_root / "morning-brief.md")  # TODO: wire up
+        result = run("brief", env={"ORIENT_ROOT": str(orient_root)})
+        fm = parse_brief_frontmatter(orient_root / "morning-brief.md")
         assert fm.notes_unreviewed == 2
 
     def test_absent_notes_md_gives_zero_notes_unreviewed_and_omits_section(self, orient_root):
         make_workspace(orient_root, [{"name": "re-owm", "path": "/tmp/re-owm"}])
         _write_note(orient_root, "re-owm", "mcp", _days_ago(1))
 
-        result = run("brief", env={"ORIENT_ROOT": str(orient_root)})  # TODO: wire up
-        fm = parse_brief_frontmatter(orient_root / "morning-brief.md")  # TODO: wire up
+        result = run("brief", env={"ORIENT_ROOT": str(orient_root)})
+        fm = parse_brief_frontmatter(orient_root / "morning-brief.md")
         assert fm.notes_unreviewed == 0
 
     def test_run_twice_same_day_overwrites_not_appends(self, orient_root):
@@ -312,13 +254,9 @@ class TestBriefFrontmatter:
         _write_note(orient_root, "re-owm", "mcp", _days_ago(1))
         brief_path = orient_root / "morning-brief.md"
 
-        run("brief", env={"ORIENT_ROOT": str(orient_root)})  # TODO: wire up
-        mtime_first = brief_path.stat().st_mtime if brief_path.exists() else None
+        run("brief", env={"ORIENT_ROOT": str(orient_root)})
+        run("brief", env={"ORIENT_ROOT": str(orient_root)})
 
-        run("brief", env={"ORIENT_ROOT": str(orient_root)})  # TODO: wire up
-        mtime_second = brief_path.stat().st_mtime if brief_path.exists() else None
-
-        # File should be overwritten, not appended; content should not duplicate
         content = brief_path.read_text()
         assert content.count("date:") == 1    # not doubled
 
@@ -333,8 +271,8 @@ class TestTopicInclusion:
         make_workspace(orient_root, [{"name": "re-owm", "path": "/tmp/re-owm"}])
         _write_note(orient_root, "re-owm", "mcp", _days_ago(1), phase_line="unrecognised-phase")
 
-        result = run("brief", env={"ORIENT_ROOT": str(orient_root)})  # TODO: wire up
-        fm = parse_brief_frontmatter(orient_root / "morning-brief.md")  # TODO: wire up
+        result = run("brief", env={"ORIENT_ROOT": str(orient_root)})
+        fm = parse_brief_frontmatter(orient_root / "morning-brief.md")
         mcp_action = next((a for a in fm.next_actions if "mcp" in a.topic), None)
         assert mcp_action is not None
         assert mcp_action.phase == "unknown"
@@ -344,15 +282,15 @@ class TestTopicInclusion:
         # Note is beyond active_days and project is not pinned
         _write_note(orient_root, "re-owm", "mcp", _days_ago(30))
 
-        result = run("brief", env={"ORIENT_ROOT": str(orient_root)})  # TODO: wire up
-        fm = parse_brief_frontmatter(orient_root / "morning-brief.md")  # TODO: wire up
+        result = run("brief", env={"ORIENT_ROOT": str(orient_root)})
+        fm = parse_brief_frontmatter(orient_root / "morning-brief.md")
         assert fm.next_actions == []
 
     def test_no_active_topics_cli_suggests_pinning(self, orient_root):
         make_workspace(orient_root, [{"name": "re-owm", "path": "/tmp/re-owm"}])
         _write_note(orient_root, "re-owm", "mcp", _days_ago(30))
 
-        result = run("brief", env={"ORIENT_ROOT": str(orient_root)})  # TODO: wire up
+        result = run("brief", env={"ORIENT_ROOT": str(orient_root)})
         assert "orient config add-project" in result.output
         assert "--pinned" in result.output
 
@@ -360,14 +298,14 @@ class TestTopicInclusion:
         make_workspace(orient_root, [{"name": "re-owm", "path": "/tmp/re-owm", "pinned": True}])
         # No notes written for this topic
 
-        result = run("brief", env={"ORIENT_ROOT": str(orient_root)})  # TODO: wire up
-        fm = parse_brief_frontmatter(orient_root / "morning-brief.md")  # TODO: wire up
+        result = run("brief", env={"ORIENT_ROOT": str(orient_root)})
+        fm = parse_brief_frontmatter(orient_root / "morning-brief.md")
         assert any("re-owm" in a.topic for a in fm.next_actions)
 
     def test_no_notes_anywhere_first_run_message(self, orient_root):
         make_workspace(orient_root, [{"name": "re-owm", "path": "/tmp/re-owm"}])
 
-        result = run("brief", env={"ORIENT_ROOT": str(orient_root)})  # TODO: wire up
+        result = run("brief", env={"ORIENT_ROOT": str(orient_root)})
         assert "no session notes found" in result.output or "session" in result.output
         assert "session-note close" in result.output
 
@@ -382,7 +320,7 @@ class TestCloseReasonSurfacing:
         make_workspace(orient_root, [{"name": "re-owm", "path": "/tmp/re-owm"}])
         _write_note(orient_root, "re-owm", "mcp", _days_ago(1), close_reason="budget-hit")
 
-        result = run("brief", env={"ORIENT_ROOT": str(orient_root)})  # TODO: wire up
+        result = run("brief", env={"ORIENT_ROOT": str(orient_root)})
         assert "budget" in result.output
         assert "re-owm/mcp" in result.output
 
@@ -390,7 +328,7 @@ class TestCloseReasonSurfacing:
         make_workspace(orient_root, [{"name": "re-owm", "path": "/tmp/re-owm"}])
         _write_note(orient_root, "re-owm", "mcp", _days_ago(1), close_reason="context-limit")
 
-        result = run("brief", env={"ORIENT_ROOT": str(orient_root)})  # TODO: wire up
+        result = run("brief", env={"ORIENT_ROOT": str(orient_root)})
         assert "context limit" in result.output
         assert "compact" in result.output
 
@@ -405,16 +343,16 @@ class TestCliOutput:
         make_workspace(orient_root, [{"name": "re-owm", "path": "/tmp/re-owm"}])
         _write_note(orient_root, "re-owm", "mcp", _days_ago(1), phase_line="harness-writer-complete")
 
-        result = run("brief", env={"ORIENT_ROOT": str(orient_root)})  # TODO: wire up
+        result = run("brief", env={"ORIENT_ROOT": str(orient_root)})
         assert result.exit_code == 0
         # Frontmatter delimiters should not appear in stdout
-        assert "---" not in result.output or result.output.count("---") == 0  # TODO: tighten - spec says frontmatter not shown on stdout
+        assert "---" not in result.output or result.output.count("---") == 0  # TODO: tighten
 
     def test_morning_brief_md_written_to_orient_root(self, orient_root):
         make_workspace(orient_root, [{"name": "re-owm", "path": "/tmp/re-owm"}])
         _write_note(orient_root, "re-owm", "mcp", _days_ago(1))
 
-        run("brief", env={"ORIENT_ROOT": str(orient_root)})  # TODO: wire up
+        run("brief", env={"ORIENT_ROOT": str(orient_root)})
         assert (orient_root / "morning-brief.md").exists()
 
 
@@ -425,7 +363,7 @@ class TestCliOutput:
 @pytest.mark.brief
 class TestErrorCases:
     def test_no_workspace_toml_shows_first_run_guidance(self, orient_root):
-        result = run("brief", env={"ORIENT_ROOT": str(orient_root)})  # TODO: wire up
+        result = run("brief", env={"ORIENT_ROOT": str(orient_root)})
         assert result.exit_code != 0
         assert "orient is not configured yet" in result.output
 
@@ -435,7 +373,7 @@ class TestErrorCases:
         note_root.mkdir()
         note_root.chmod(0o555)
 
-        result = run("brief", env={"ORIENT_ROOT": str(orient_root)})  # TODO: wire up
+        result = run("brief", env={"ORIENT_ROOT": str(orient_root)})
         assert result.exit_code != 0
         assert "cannot write" in result.output
         assert "note_root" in result.output or "notes" in result.output

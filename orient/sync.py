@@ -32,6 +32,7 @@ class SyncResult:
     side_branch_name: Optional[str] = None
     ahead_of_base: int = 0
     behind_of_base: int = 0
+    observation_logged: bool = False
 
 
 def sync_project(
@@ -44,7 +45,7 @@ def sync_project(
     if not project_path.exists():
         return SyncResult(name=config.name, error="path not found")
 
-    unit_type = str(config.unit_type) if hasattr(config, "unit_type") else "git"
+    unit_type = getattr(config.unit_type, "value", str(config.unit_type)) if hasattr(config, "unit_type") else "git"
     if unit_type == "vault":
         return _sync_vault(config, prior_state)
 
@@ -96,6 +97,7 @@ def _sync_git(
                     cwd=repo,
                     orient_root=orient_root,
                 )
+                result.observation_logged = True
             except Exception:
                 pass
         result.suppressed = not result.dirty
