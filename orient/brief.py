@@ -1,6 +1,7 @@
 """build_preflight_token, get_next_action, parse_brief_frontmatter, run_brief."""
 from __future__ import annotations
 
+import os
 import sys
 from dataclasses import dataclass, field
 from datetime import date, timedelta
@@ -271,6 +272,8 @@ def run_brief(
     orient_root: Path,
     client: Optional[anthropic.Anthropic] = None,
 ) -> None:
+    if client is None and os.getenv("ANTHROPIC_API_KEY"):
+        client = anthropic.Anthropic()
     today = date.today().isoformat()
     brief_path = orient_root / "morning-brief.md"
 

@@ -61,6 +61,16 @@ _KNOWN_PROJECT_KEYS = {
 _VALID_ACTIVITY_MODELS = {"recency"}
 
 
+def _expand_path(raw: str, base: Path) -> str:
+    """Expand a project path: absolute/tilde paths expand as-is; relative paths resolve against base."""
+    if not raw:
+        return raw
+    p = Path(raw)
+    if raw.startswith("~") or p.is_absolute():
+        return str(p.expanduser().resolve())
+    return str((base / raw).expanduser().resolve())
+
+
 def config_path(orient_root: Path) -> Path:
     """Returns orient_root / 'workspace.toml'. Pure computation - no I/O."""
     return orient_root / "workspace.toml"
@@ -84,7 +94,10 @@ def validate_workspace(workspace_path: Path) -> ValidationResult:
     if activity_model not in _VALID_ACTIVITY_MODELS:
         errors.append(f"invalid activity_model '{activity_model}': must be one of {sorted(_VALID_ACTIVITY_MODELS)}")
 
-    projects: list[dict[str, Any]] = data.get("projects", [])
+    workspace = data.get("workspace", {})
+    base = Path(workspace.get("base", "~")).expanduser()
+
+    projects: list[dict[str, Any]] = workspace.get("projects", data.get("projects", []))
     seen_names: set[str] = set()
     for entry in projects:
         name = entry.get("name", "")
@@ -95,7 +108,7 @@ def validate_workspace(workspace_path: Path) -> ValidationResult:
 
         raw_path = entry.get("path", "")
         if raw_path:
-            expanded = Path(raw_path).expanduser()
+            expanded = Path(_expand_path(raw_path, base))
             if not expanded.exists():
                 warnings.append(f"project '{name}': path not found: {raw_path}")
 
@@ -128,10 +141,13 @@ def load_effective_config(orient_root: Path) -> EffectiveConfig:
         freshness_window=raw_defaults.get("freshness_window", 60),
     )
 
+    workspace = data.get("workspace", {})
+    base = Path(workspace.get("base", "~")).expanduser()
+
     projects: list[ProjectEntry] = []
-    for entry in data.get("projects", []):
+    for entry in workspace.get("projects", data.get("projects", [])):
         raw_path = entry.get("path", "")
-        expanded_path = str(Path(raw_path).expanduser().resolve()) if raw_path else raw_path
+        expanded_path = _expand_path(raw_path, base)
         projects.append(ProjectEntry(
             name=entry.get("name", ""),
             path=expanded_path,
