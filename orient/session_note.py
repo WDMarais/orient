@@ -252,6 +252,7 @@ def run_session_note(
             session_section = f"\n## Session\n- reason: {reason}\n- model: haiku\n"
             with note_path.open("a") as f:
                 f.write(session_section)
+            print(f"note: {note_path}")
             return
 
         # new or no-prev
@@ -263,6 +264,7 @@ def run_session_note(
                 except Exception:
                     pass
             _write_template_note(note_path, project, topic, today, mode, reason, prev_parsed)
+            print(f"note: {note_path}")
             return
 
         existing_content = None
@@ -286,3 +288,4 @@ def run_session_note(
             messages=[{"role": "user", "content": prompt}],
         )
         note_path.write_text(response.content[0].text)
+        print(f"note: {note_path}")
