@@ -69,23 +69,7 @@ class StatusResult:
 # Stubs
 # ---------------------------------------------------------------------------
 
-# TODO: from orient.status import compute_status, should_fetch
-def compute_status(
-    config: ProjectConfig,
-    prior_state: Optional[ProjectState] = None,
-    local_only: bool = False,
-    freshness_window_minutes: int = 60,
-) -> StatusResult:
-    raise NotImplementedError("orient.status not yet implemented")  # TODO: wire up
-
-
-def should_fetch(
-    prior_state: Optional[ProjectState],
-    current_head: str,
-    freshness_window_minutes: int = 60,
-) -> bool:
-    """Return True if status should perform a network fetch for this project."""
-    raise NotImplementedError("orient.status not yet implemented")  # TODO: wire up
+from orient.status import compute_status, should_fetch
 
 
 def _ts(minutes_ago: int) -> str:

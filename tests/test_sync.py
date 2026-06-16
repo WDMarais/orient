@@ -79,21 +79,7 @@ class ProjectState:
 # Stubs — swap for real imports when orient.sync exists
 # ---------------------------------------------------------------------------
 
-# TODO: from orient.sync import sync_project, sync_all
-def sync_project(
-    config: ProjectConfig,
-    prior_state: Optional[ProjectState] = None,
-    push_override: bool = False,       # TODO: fixture pattern — may be expressed as RunConfig
-) -> SyncResult:
-    raise NotImplementedError("orient.sync not yet implemented")  # TODO: wire up
-
-
-def sync_all(
-    configs: list[ProjectConfig],
-    prior_states: dict[str, ProjectState],
-    push_override: bool = False,
-) -> list[SyncResult]:
-    raise NotImplementedError("orient.sync not yet implemented")  # TODO: wire up
+from orient.sync import sync_project, sync_all
 
 
 # ---------------------------------------------------------------------------
