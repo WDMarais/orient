@@ -1,4 +1,4 @@
-"""state.toml management — atomic read/write; single-backup MVP."""
+"""state.toml management - atomic read/write; single-backup MVP."""
 from __future__ import annotations
 
 import shutil

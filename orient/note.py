@@ -59,7 +59,7 @@ def append_note(text: str, cwd: Path, orient_root: Path) -> NoteEntry:
         with notes_path.open("a") as f:
             f.write(_format_entry(entry))
     except OSError:
-        raise OSError(f"cannot write to {notes_path} — check permissions")
+        raise OSError(f"cannot write to {notes_path} - check permissions")
 
     return entry
 

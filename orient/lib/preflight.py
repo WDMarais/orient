@@ -1,10 +1,11 @@
-"""Session close preflight — fork of agent-skills/lib/session_close_preflight.py.
+"""Session close preflight - fork of agent-skills/lib/session_close_preflight.py.
 
 Changes from upstream: ticket→topic; note_root passed explicitly (no NOTE_ROOT env var);
 adapted from CLI script to callable route() returning a dict (no stdout token output).
 """
 from __future__ import annotations
 
+import os
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any
@@ -32,7 +33,20 @@ def route(
         topic_dir.mkdir(parents=True, exist_ok=True)
     except OSError:
         return {
-            "mode": f"error:no-note-dir",
+            "mode": "error:no-note-dir",
+            "error": f"no-note-dir path:{topic_dir}",
+            "note_path": str(today_path),
+            "called_at": called_at,
+            "prev_path": None,
+            "pending_count": 0,
+            "deferred_count": 0,
+            "append_line": None,
+            "append_pass": None,
+        }
+
+    if not os.access(topic_dir, os.W_OK):
+        return {
+            "mode": "error:no-note-dir",
             "error": f"no-note-dir path:{topic_dir}",
             "note_path": str(today_path),
             "called_at": called_at,
@@ -77,7 +91,7 @@ def route(
             "error": None,
         }
 
-    # No today note — check for previous
+    # No today note - check for previous
     prev = _find_latest_excl(note_root, project, topic, today)
     if prev is None:
         return {

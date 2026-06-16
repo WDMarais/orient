@@ -144,9 +144,20 @@ orient brief (all topics fully up-to-date, nothing pending or deferred)
   → "All caught up. Orient suggests: review backlog or start a new topic."
 
 orient brief (run twice same day)
-  → overwrites morning-brief.md — does not append
-  → refreshes with current note state
-  → last_brief frontmatter field updates to today after first run
+  → overwrites morning-brief.md in-place — does not append, does not archive
+  → refreshes with current note state; second run is effectively a re-derive
+
+orient brief (stale brief exists — morning-brief.md date: is a previous day)
+  → archives morning-brief.md to morning-briefs/<date-from-frontmatter>.md before writing
+  → morning-briefs/ created if absent
+  → morning-brief.md always reflects today's run; history preserved in morning-briefs/
+  # archive key is the date FROM the frontmatter, not today's date — self-describing even
+  # if the previous brief is several days old (e.g. after a weekend)
+
+orient brief (stale brief exists — frontmatter date: unreadable or absent)
+  → falls back to file mtime for archive filename: morning-briefs/<mtime-date>.md
+  → warns inline: "morning-brief.md frontmatter date unreadable — archived using file date"
+  → proceeds normally; does not block
 
 orient brief (topic last noted >active_days ago, not pinned)
   → topic does not appear — below activity threshold

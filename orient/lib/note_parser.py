@@ -1,4 +1,4 @@
-"""Note parsing utilities — fork of agent-skills/lib/note_parser.py.
+"""Note parsing utilities - fork of agent-skills/lib/note_parser.py.
 
 Changes from upstream: ticket→topic; parse_sections/extract_section take text not path;
 added parse_bullets, parse_kv_bullets; find_latest_note takes explicit note_root.

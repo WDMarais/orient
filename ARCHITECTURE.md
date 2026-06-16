@@ -572,11 +572,15 @@ def run_brief(
     orient_root: Path,
     client: Optional[anthropic.Anthropic] = None,  # injectable; defaults to anthropic.Anthropic()
 ) -> None
-    # 1. Calls build_preflight_token().
-    # 2. Builds Haiku prompt with token.
-    # 3. Calls Haiku via client; writes morning-brief.md (overwrites if exists).
-    # 4. Prints prose section to stdout (content after closing ---).
-    # 5. Updates state: last_brief date in state.toml after successful write.
+    # 1. Archive check: if morning-brief.md exists and its date: frontmatter is not today,
+    #    move it to morning-briefs/<date-from-frontmatter>.md (create morning-briefs/ if absent).
+    #    Frontmatter date unreadable: fall back to file mtime, warn inline, proceed.
+    #    Same-day re-run: skip archive, overwrite in-place.
+    # 2. Calls build_preflight_token().
+    # 3. Builds Haiku prompt with token.
+    # 4. Calls Haiku via client; writes morning-brief.md.
+    # 5. Prints prose section to stdout (content after closing ---).
+    # 6. Updates state: last_brief date in state.toml after successful write.
 ```
 
 Design decisions:

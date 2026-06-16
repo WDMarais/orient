@@ -1,4 +1,4 @@
-"""compute_status, should_fetch, StatusResult — read-only; no state writes."""
+"""compute_status, should_fetch, StatusResult - read-only; no state writes."""
 from __future__ import annotations
 
 import subprocess
@@ -86,7 +86,7 @@ def compute_status(
     local_only: bool = False,
     freshness_window_minutes: int = 60,
 ) -> StatusResult:
-    """Compute status of a project. Read-only — does not write state."""
+    """Compute status of a project. Read-only - does not write state."""
     project_path = Path(config.path)
 
     if not project_path.exists():
@@ -109,7 +109,7 @@ def _vault_status(
     has_files = vault_path.is_dir() and any(True for _ in vault_path.iterdir())
 
     if prior_state is not None:
-        # Previously synced — vault is backed up; files present means backup was recent
+        # Previously synced - vault is backed up; files present means backup was recent
         result.backup_recent = has_files
         result.suppressed = True
         return result

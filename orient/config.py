@@ -1,4 +1,4 @@
-"""workspace.toml management — Pydantic models, tomllib reads, tomli-w writes."""
+"""workspace.toml management - Pydantic models, tomllib reads, tomli-w writes."""
 from __future__ import annotations
 
 import tomllib
@@ -62,7 +62,7 @@ _VALID_ACTIVITY_MODELS = {"recency"}
 
 
 def config_path(orient_root: Path) -> Path:
-    """Returns orient_root / 'workspace.toml'. Pure computation — no I/O."""
+    """Returns orient_root / 'workspace.toml'. Pure computation - no I/O."""
     return orient_root / "workspace.toml"
 
 
@@ -111,7 +111,7 @@ def load_effective_config(orient_root: Path) -> EffectiveConfig:
     ws_path = config_path(orient_root)
     if not ws_path.exists():
         raise FileNotFoundError(
-            f"orient is not configured yet — run: orient config add-project <name> <path>"
+            f"orient is not configured yet - run: orient config add-project <name> <path>"
         )
 
     try:
@@ -167,7 +167,7 @@ def add_project_entry(
         data = tomllib.loads(workspace_path.read_text())
         existing_names = [p.get("name") for p in data.get("projects", [])]
         if name in existing_names:
-            raise ValueError(f'"{name}" already exists — edit workspace.toml directly to modify')
+            raise ValueError(f'"{name}" already exists - edit workspace.toml directly to modify')
     else:
         data = {
             "defaults": {

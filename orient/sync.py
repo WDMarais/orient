@@ -1,4 +1,4 @@
-"""sync_project, sync_all — git pull/push + vault detection."""
+"""sync_project, sync_all - git pull/push + vault detection."""
 from __future__ import annotations
 
 import subprocess
