@@ -162,6 +162,13 @@ def build_preflight_token(
             if last_brief_date is None or entry.date > last_brief_date:
                 notes_since.append(f"{entry.date} {entry.time}  [{entry.tag}]  {entry.text}")
 
+    for project in projects:
+        proj_notes_md = note_root / project.name / "NOTES.md"
+        if proj_notes_md.exists():
+            for entry in parse_notes_md(proj_notes_md):
+                if last_brief_date is None or entry.date > last_brief_date:
+                    notes_since.append(f"{entry.date} {entry.time}  [{entry.tag}]  {entry.text}")
+
     return PreflightToken(
         last_brief=last_brief_date or date.today().isoformat(),
         active_topics=len(topics),

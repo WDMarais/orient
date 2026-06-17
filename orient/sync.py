@@ -94,7 +94,7 @@ def _sync_git(
             try:
                 append_note(
                     f"{config.name}: no upstream configured",
-                    cwd=repo,
+                    cwd=orient_root,
                     orient_root=orient_root,
                 )
                 result.observation_logged = True

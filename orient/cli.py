@@ -186,9 +186,10 @@ def note(text: str) -> None:
         raise typer.Exit(code=1)
 
     try:
-        append_note(text, cwd=Path.cwd(), orient_root=orient_root)
+        entry = append_note(text, cwd=Path.cwd(), orient_root=orient_root)
+        typer.echo(f"note: {entry.notes_path}")
     except OSError as exc:
-        typer.echo(f"cannot write to {orient_root / 'NOTES.md'}: {exc}")
+        typer.echo(str(exc))
         raise typer.Exit(code=1)
 
 

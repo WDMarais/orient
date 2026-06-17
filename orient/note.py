@@ -5,16 +5,18 @@ import re
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from typing import Optional
 
 from orient.config import ProjectEntry, load_effective_config
 
 
 @dataclass
 class NoteEntry:
-    date: str   # YYYY-MM-DD
-    time: str   # HH:MM
-    tag: str    # project name or "untagged"
+    date: str         # YYYY-MM-DD
+    time: str         # HH:MM
+    tag: str          # project name or "untagged"
     text: str
+    notes_path: Optional[Path] = None
 
 
 def infer_tag(cwd: Path, configs: list[ProjectEntry]) -> str:
@@ -47,14 +49,21 @@ def append_note(text: str, cwd: Path, orient_root: Path) -> NoteEntry:
 
     tag = infer_tag(cwd, configs)
     now = datetime.now()
+
+    if tag != "untagged":
+        notes_path = orient_root / "notes" / tag / "NOTES.md"
+        notes_path.parent.mkdir(parents=True, exist_ok=True)
+    else:
+        notes_path = orient_root / "NOTES.md"
+
     entry = NoteEntry(
         date=now.strftime("%Y-%m-%d"),
         time=now.strftime("%H:%M"),
         tag=tag,
         text=text,
+        notes_path=notes_path,
     )
 
-    notes_path = orient_root / "NOTES.md"
     try:
         with notes_path.open("a") as f:
             f.write(_format_entry(entry))

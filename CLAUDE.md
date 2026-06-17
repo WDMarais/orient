@@ -6,7 +6,42 @@ makes LLM sessions productive and cost-efficient across personal projects.
 
 ## Status
 
-Architecture complete. Next pipeline step: `/implementation-writer` against `ARCHITECTURE.md` + `tests/`.
+Implementation complete. All 11 modules shipped; 154/155 tests green (1 known spec gap: NOTES.md sweep on close).
+
+## Usage patterns
+
+**SOD**
+```
+orient brief              # ranked active topics + recommended next actions
+                          # read, pick topic, start Claude session with brief as context
+```
+`orient brief` output is a *claim* Claude audits at session start, not instructions it executes — the SOD seam is intentionally manual.
+
+**Session close** (run inside the active Claude session)
+```
+orient session-note close <project> <topic>
+# prints skeleton path + previous note
+# fill Goal/Shipped/Pending/Deferred/phase — Claude has session context to help
+```
+
+**Mid-session checkpoint** (before compaction, venue swap, context limit)
+```
+orient session-note checkpoint <project> <topic>
+# appends ### Checkpoint N - HH:MM to current note
+```
+
+**Quick capture** (mid-session, don't break flow)
+```
+orient note "observation text"   # tag inferred from cwd; lands in NOTES.md, swept into next brief
+```
+
+**Repo hygiene** (git repos only — not the notes vault)
+```
+orient sync               # pull/push all projects in workspace.toml
+orient status             # freshness + uncommitted state across workspace
+```
+
+**Note vault sync** — opt-in: `git init ~/.orient/` and add it to workspace.toml as a project entry. `orient sync` then handles it like any other repo.
 
 ## Spec files
 
