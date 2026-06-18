@@ -116,6 +116,39 @@ with reason, cost, duration and model. Sweeps session for NOTES.md items.
   → never dropped silently
 ```
 
+## Date override (backdating)
+
+Both modes default the written date to the system clock. `--date YYYY-MM-DD` overrides
+it — for the common case of closing a session you neglected to close on the day it
+happened, without today becoming the date the work is recorded under. See the
+spec.md "Writing date is overridable; the frontier is not" invariant.
+
+Override changes only the written date: the note filename `<date>.md` and the
+`# <date> — <project>/<topic>` header. Intra-note timestamps (checkpoint/close `HH:MM`)
+remain real capture time — the date moves, the clock does not lie about when you typed.
+
+```
+orient session close <project> <topic> --date 2026-06-17 (today is 2026-06-18; no note for the 17th)
+  → preflight resolves prev relative to the OVERRIDDEN date:
+      previous note = latest note strictly before 2026-06-17 (NOT the latest overall)
+  → mode:new prev:<…/2026-06-16.md> pending:n deferred:n
+  → writes …/<project>/<topic>/2026-06-17.md with rollforward from the 16th
+  → state last-note pointer: unchanged if a note dated > 2026-06-17 already exists
+    for this topic (backfill behind the frontier does not regress state)
+
+orient session close <project> <topic> --date 2026-06-17 (a 2026-06-17 note/checkpoint already exists)
+  → preflight: mode:append — appends ### Close — <HH:MM> to the 17th's note
+  → never clobbers the existing dated note
+
+orient session close <project> <topic> --date 2026-06-20 (today is 2026-06-18)
+  → error:future-date given:2026-06-20 today:2026-06-18
+  → does not proceed (explicit over implicit; you cannot close the future)
+```
+
+Applies identically to `checkpoint` (backdated mid-session marker), though backdating a
+checkpoint is rare. `day close` carries the same `--date` flag with marker-level
+semantics — see [spec-day-close.md](spec-day-close.md).
+
 ## NOTES.md sweep (close only)
 
 ```

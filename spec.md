@@ -52,19 +52,55 @@ the orchestrator owns enforcement. Neither tier substitutes for the other.
 options, guardrails, and concrete examples. Help text is co-located with
 implementation and updated alongside it.
 
+**Writing date is overridable; the frontier is not.** Lifecycle writes (`session
+close`, `day close`) default their date to the system clock but accept an explicit
+`--date YYYY-MM-DD` for the common case of closing work you neglected to close on the
+day it happened. Override changes only the *written* date — the note/marker filename
+and its header. It never moves a frontier backward: rollforward still resolves the
+previous note relative to the *overridden* date, and `state.toml`'s last-note / last-brief
+pointers advance only when the written date is the newest for that topic. Backfilling
+behind the frontier writes the artifact without rewriting state. Future dates are an
+error (explicit over implicit); a today-or-earlier collision appends, never clobbers.
+
 ---
+
+## Command surface
+
+A **lifecycle spine** of two nested scopes (`day`, `session`) × their edges, plus
+**orthogonal utilities** callable at any time. Scope is explicit in the command path.
+
+```
+LIFECYCLE SPINE
+  orient day start                       day-start  — morning brief            (Haiku)
+    orient session start <project> <topic>          — scaffold instance + cold brief (mechanical)
+    orient session checkpoint <project> <topic>     — mid-session marker         (mechanical)
+    orient session close <project> <topic>          — terminal note + GC sweep   (mechanical + Haiku sweep)
+  orient day close                       day-close  — aggregate + pre-plan      (Haiku)
+
+UTILITIES (anytime)
+  orient sync | status | note | config
+```
+
+Sizing principle: session edges are **mechanical** (deterministic scaffolding, no API
+call); day edges are **Haiku** synthesis (ranking, pre-plan). See the
+backdating invariant above for `--date` on the two close edges.
 
 ## Subsystems
 
-| Subsystem | File | Purpose |
-|---|---|---|
-| orient | [spec-orient.md](spec-orient.md) | Top-level help, version, critical env errors |
-| sync | [spec-sync.md](spec-sync.md) | Pull/push repos per config |
-| status | [spec-status.md](spec-status.md) | Repo state display without sync |
-| note | [spec-note.md](spec-note.md) | Lightweight observation capture |
-| config | [spec-config.md](spec-config.md) | workspace.toml management |
-| brief | [spec-brief.md](spec-brief.md) | SOD context + queue (Haiku skill) |
-| session-note | [spec-session-note.md](spec-session-note.md) | Checkpoint/close session notes (Haiku + preflight) |
+| Subsystem | Command(s) | File | Purpose |
+|---|---|---|---|
+| orient | `orient` | [spec-orient.md](spec-orient.md) | Top-level help, version, critical env errors |
+| sync | `orient sync` | [spec-sync.md](spec-sync.md) | Pull/push repos per config |
+| status | `orient status` | [spec-status.md](spec-status.md) | Repo state display without sync |
+| note | `orient note` | [spec-note.md](spec-note.md) | Lightweight observation capture |
+| config | `orient config` | [spec-config.md](spec-config.md) | workspace.toml management (incl. multi-root profiles) |
+| day-start | `orient day start` | [spec-brief.md](spec-brief.md) | SOD context + queue (Haiku skill) |
+| day-close | `orient day close` | [spec-day-close.md](spec-day-close.md) | EOD aggregate of today's notes → marker + pre-plan (Haiku) |
+| session | `orient session start\|checkpoint\|close` | [spec-session-note.md](spec-session-note.md) | Scaffold / checkpoint / close session notes (mechanical + preflight) |
+
+> Surface migration: `brief` → `day start`, `session-note` → `session {checkpoint,close}`,
+> plus new `session start` (scaffolding) and `day close` (the EOD keystone that feeds
+> `day start`). Renames preserve existing behavior; the two new edges are net additions.
 
 ---
 
