@@ -151,7 +151,7 @@ def load_effective_config(orient_root: Path) -> EffectiveConfig:
         projects.append(ProjectEntry(
             name=entry.get("name", ""),
             path=expanded_path,
-            push=entry.get("push", False),
+            push=entry.get("push", defaults.push),
             pinned=entry.get("pinned", False),
             unit_type=entry.get("unit_type", entry.get("type", "git")),
             auto_commit=entry.get("auto_commit", False),
