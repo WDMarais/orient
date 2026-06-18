@@ -262,7 +262,10 @@ class TestFeatureBranch:
 
 @pytest.mark.sync
 class TestErrorStates:
-    def test_remote_unreachable_sets_error_field(self, tmp_path):
+    def test_remote_unreachable_sets_error_field(self, tmp_path, monkeypatch):
+        # Inject a short fetch timeout so this exercises the fail-fast guard in ~2s
+        # rather than waiting git's multi-minute connect timeout on the unroutable IP.
+        monkeypatch.setattr("orient.sync._FETCH_TIMEOUT", 2)
         local = make_git_repo(tmp_path / "repo-h")
         _git(local, "remote", "add", "origin", "https://192.0.2.1/unreachable.git")
 

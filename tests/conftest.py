@@ -142,6 +142,14 @@ def head_sha(repo: Path) -> str:
 # Fixtures
 # ---------------------------------------------------------------------------
 
+@pytest.fixture(autouse=True)
+def _deterministic_anthropic(monkeypatch):
+    """Blank ANTHROPIC_API_KEY for every test so brief / day close take the
+    no-Haiku deterministic branch. Guarantees the suite never makes real API
+    calls regardless of what the host environment exports."""
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "")
+
+
 @pytest.fixture
 def orient_root(tmp_path: Path) -> Path:
     root = tmp_path / "orient_root"

@@ -13,6 +13,15 @@ from orient.note import append_note
 from orient.state import ProjectState
 from orient.status import _git, _git_check, _default_branch
 
+# Fail fast on unreachable remotes instead of inheriting git's multi-minute default.
+# A hard subprocess timeout is the reliable, transport-agnostic guard (git's
+# http.connectTimeout was observed not to fire for dropped-packet hosts).
+_FETCH_TIMEOUT = 20          # seconds
+
+
+def _fetch(repo: Path) -> tuple[str, str, int]:
+    return _git_check(repo, "fetch", "--quiet", timeout=_FETCH_TIMEOUT)
+
 
 @dataclass
 class SyncResult:
@@ -115,7 +124,7 @@ def _sync_git(
         result.dirty = False
         result.dirty_count = 0
 
-        _git_check(repo, "fetch", "--quiet")
+        _fetch(repo)
         tracking = _git(repo, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}")
         if tracking:
             _git_check(repo, "pull", "--no-rebase", "--quiet")
@@ -131,7 +140,7 @@ def _sync_git(
         return result
 
     # Fetch
-    fetch_out, fetch_err, fetch_rc = _git_check(repo, "fetch", "--quiet")
+    fetch_out, fetch_err, fetch_rc = _fetch(repo)
     if fetch_rc != 0:
         result.error = "remote unreachable"
         return result

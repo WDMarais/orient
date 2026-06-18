@@ -57,11 +57,14 @@ def _git(repo: Path, *args: str) -> str:
     return result.stdout.strip()
 
 
-def _git_check(repo: Path, *args: str) -> tuple[str, str, int]:
-    result = subprocess.run(
-        ["git", "-C", str(repo), *args],
-        capture_output=True, text=True,
-    )
+def _git_check(repo: Path, *args: str, timeout: Optional[float] = None) -> tuple[str, str, int]:
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(repo), *args],
+            capture_output=True, text=True, timeout=timeout,
+        )
+    except subprocess.TimeoutExpired:
+        return "", "timed out", 124
     return result.stdout.strip(), result.stderr.strip(), result.returncode
 
 
