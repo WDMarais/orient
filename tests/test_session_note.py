@@ -1,4 +1,4 @@
-"""Tests for orient session-note behavioral contract.
+"""Tests for orient session behavioral contract.
 
 Spec: spec-session-note.md
 One operation, two modes: checkpoint (mid-session) and close (terminal).
@@ -176,7 +176,7 @@ class TestCheckpointMode:
                          pending=["finish sync cases", "write brief cases"],
                          deferred=["hub-marker equivalent → dropped"])
 
-        result = run("session-note", "checkpoint", "orient", "cli",  # TODO: wire up - project/topic passing is fixture pattern
+        result = run("session", "checkpoint", "orient", "cli",  # TODO: wire up - project/topic passing is fixture pattern
                      env={"ORIENT_ROOT": str(orient_root)})  # TODO: wire up
         assert result.exit_code == 0
 
@@ -188,7 +188,7 @@ class TestCheckpointMode:
         _write_prev_note(orient_root, "orient", "cli", "2026-05-23",
                          pending=["finish sync cases", "write brief cases"])
 
-        run("session-note", "checkpoint", "orient", "cli",  # TODO: wire up
+        run("session", "checkpoint", "orient", "cli",  # TODO: wire up
             env={"ORIENT_ROOT": str(orient_root)})  # TODO: wire up
 
         content = _note_path(orient_root, "orient", "cli", _today()).read_text()
@@ -200,7 +200,7 @@ class TestCheckpointMode:
         _write_prev_note(orient_root, "orient", "cli", "2026-05-23",
                          deferred=["hub-marker equivalent → dropped"])
 
-        run("session-note", "checkpoint", "orient", "cli",  # TODO: wire up
+        run("session", "checkpoint", "orient", "cli",  # TODO: wire up
             env={"ORIENT_ROOT": str(orient_root)})  # TODO: wire up
 
         content = _note_path(orient_root, "orient", "cli", _today()).read_text()
@@ -210,7 +210,7 @@ class TestCheckpointMode:
         make_workspace(orient_root, [{"name": "orient", "path": "/tmp/orient"}])
         _write_prev_note(orient_root, "orient", "cli", "2026-05-23")
 
-        run("session-note", "checkpoint", "orient", "cli",  # TODO: wire up
+        run("session", "checkpoint", "orient", "cli",  # TODO: wire up
             env={"ORIENT_ROOT": str(orient_root)})  # TODO: wire up
 
         note = parse_note(_note_path(orient_root, "orient", "cli", _today()))  # TODO: wire up
@@ -222,7 +222,7 @@ class TestCheckpointMode:
         today_path.parent.mkdir(parents=True, exist_ok=True)
         today_path.write_text(f"# {_today()} - orient/cli\n\n## Goal\nToday\n\n## Pending\n- item\n")
 
-        run("session-note", "checkpoint", "orient", "cli",  # TODO: wire up
+        run("session", "checkpoint", "orient", "cli",  # TODO: wire up
             env={"ORIENT_ROOT": str(orient_root)})  # TODO: wire up
 
         note = parse_note(today_path)  # TODO: wire up
@@ -235,7 +235,7 @@ class TestCheckpointMode:
         original_content = f"# {_today()} - orient/cli\n\n## Goal\nToday\n\n## Pending\n- original item\n"
         today_path.write_text(original_content)
 
-        run("session-note", "checkpoint", "orient", "cli",  # TODO: wire up
+        run("session", "checkpoint", "orient", "cli",  # TODO: wire up
             env={"ORIENT_ROOT": str(orient_root)})  # TODO: wire up
 
         content = today_path.read_text()
@@ -244,7 +244,7 @@ class TestCheckpointMode:
     def test_no_prev_note_writes_fresh_note_without_rollforward(self, orient_root):
         make_workspace(orient_root, [{"name": "orient", "path": "/tmp/orient"}])
 
-        run("session-note", "checkpoint", "orient", "cli",  # TODO: wire up
+        run("session", "checkpoint", "orient", "cli",  # TODO: wire up
             env={"ORIENT_ROOT": str(orient_root)})  # TODO: wire up
 
         note_path = _note_path(orient_root, "orient", "cli", _today())
@@ -261,7 +261,7 @@ class TestCloseMode:
         make_workspace(orient_root, [{"name": "orient", "path": "/tmp/orient"}])
         _write_prev_note(orient_root, "orient", "cli", "2026-05-23")
 
-        run("session-note", "close", "orient", "cli",  # TODO: wire up
+        run("session", "close", "orient", "cli",  # TODO: wire up
             env={"ORIENT_ROOT": str(orient_root)})  # TODO: wire up
 
         note = parse_note(_note_path(orient_root, "orient", "cli", _today()))  # TODO: wire up
@@ -271,7 +271,7 @@ class TestCloseMode:
         make_workspace(orient_root, [{"name": "orient", "path": "/tmp/orient"}])
         _write_prev_note(orient_root, "orient", "cli", "2026-05-23")
 
-        run("session-note", "close", "orient", "cli",  # TODO: wire up
+        run("session", "close", "orient", "cli",  # TODO: wire up
             env={"ORIENT_ROOT": str(orient_root)})  # TODO: wire up
 
         note = parse_note(_note_path(orient_root, "orient", "cli", _today()))  # TODO: wire up
@@ -281,7 +281,7 @@ class TestCloseMode:
         make_workspace(orient_root, [{"name": "orient", "path": "/tmp/orient"}])
         _write_prev_note(orient_root, "orient", "cli", "2026-05-23")
 
-        run("session-note", "close", "orient", "cli", "reason:budget-hit",  # TODO: wire up
+        run("session", "close", "orient", "cli", "reason:budget-hit",  # TODO: wire up
             env={"ORIENT_ROOT": str(orient_root)})  # TODO: wire up
 
         note = parse_note(_note_path(orient_root, "orient", "cli", _today()))  # TODO: wire up
@@ -291,7 +291,7 @@ class TestCloseMode:
         make_workspace(orient_root, [{"name": "orient", "path": "/tmp/orient"}])
         _write_prev_note(orient_root, "orient", "cli", "2026-05-23")
 
-        run("session-note", "close", "orient", "cli", "reason:context-limit",  # TODO: wire up
+        run("session", "close", "orient", "cli", "reason:context-limit",  # TODO: wire up
             env={"ORIENT_ROOT": str(orient_root)})  # TODO: wire up
 
         note = parse_note(_note_path(orient_root, "orient", "cli", _today()))  # TODO: wire up
@@ -307,7 +307,7 @@ class TestCloseMode:
             f"### Checkpoint 1 - 10:00\n- progress note\n"
         )
 
-        run("session-note", "close", "orient", "cli",  # TODO: wire up
+        run("session", "close", "orient", "cli",  # TODO: wire up
             env={"ORIENT_ROOT": str(orient_root)})  # TODO: wire up
 
         content = today_path.read_text()
@@ -317,7 +317,7 @@ class TestCloseMode:
     def test_close_no_prev_note_writes_fresh_note_with_session(self, orient_root):
         make_workspace(orient_root, [{"name": "orient", "path": "/tmp/orient"}])
 
-        run("session-note", "close", "orient", "cli",  # TODO: wire up
+        run("session", "close", "orient", "cli",  # TODO: wire up
             env={"ORIENT_ROOT": str(orient_root)})  # TODO: wire up
 
         note = parse_note(_note_path(orient_root, "orient", "cli", _today()))  # TODO: wire up
@@ -336,7 +336,7 @@ class TestRollforwardInvariant:
                          pending=["do the thing"])
 
         # Close with all previous pending shipped (Haiku marks them done)
-        run("session-note", "close", "orient", "cli",  # TODO: wire up
+        run("session", "close", "orient", "cli",  # TODO: wire up
             env={"ORIENT_ROOT": str(orient_root)})  # TODO: wire up
 
         note = parse_note(_note_path(orient_root, "orient", "cli", _today()))  # TODO: wire up
@@ -349,7 +349,7 @@ class TestRollforwardInvariant:
         _write_prev_note(orient_root, "orient", "cli", "2026-05-23",
                          deferred=["hub-marker equivalent → dropped"])
 
-        run("session-note", "close", "orient", "cli",  # TODO: wire up
+        run("session", "close", "orient", "cli",  # TODO: wire up
             env={"ORIENT_ROOT": str(orient_root)})  # TODO: wire up
 
         note = parse_note(_note_path(orient_root, "orient", "cli", _today()))  # TODO: wire up
@@ -360,7 +360,7 @@ class TestRollforwardInvariant:
         pending_items = ["item A", "item B", "item C"]
         _write_prev_note(orient_root, "orient", "cli", "2026-05-23", pending=pending_items)
 
-        run("session-note", "checkpoint", "orient", "cli",  # TODO: wire up
+        run("session", "checkpoint", "orient", "cli",  # TODO: wire up
             env={"ORIENT_ROOT": str(orient_root)})  # TODO: wire up
 
         content = _note_path(orient_root, "orient", "cli", _today()).read_text()
@@ -384,7 +384,7 @@ class TestNotesSweep:
         notes_path.write_text("existing note\n")
         original = notes_path.read_text()
 
-        run("session-note", "close", "orient", "cli",  # TODO: wire up
+        run("session", "close", "orient", "cli",  # TODO: wire up
             env={"ORIENT_ROOT": str(orient_root)})  # TODO: wire up
 
         # Sweep runs silently; notes not appended when nothing flagged
@@ -408,7 +408,7 @@ class TestPreflightEdgeCases:
         if result.mode == "ambiguous":
             assert result.error is not None
             # CLI surfaces reason and suggests Sonnet
-            cli_result = run("session-note", "checkpoint", "orient", "cli",
+            cli_result = run("session", "checkpoint", "orient", "cli",
                              env={"ORIENT_ROOT": str(orient_root)})  # TODO: wire up
             assert "Sonnet" in cli_result.output
             assert cli_result.exit_code != 0
@@ -421,7 +421,7 @@ class TestPreflightEdgeCases:
         result = run_preflight("orient", "cli", "checkpoint", orient_root)  # TODO: wire up
         # If mode is unrecognised, CLI must print raw output and stop
         if result.mode not in ("new", "append", "no-prev", "ambiguous") and not result.mode.startswith("error"):
-            cli_result = run("session-note", "checkpoint", "orient", "cli",
+            cli_result = run("session", "checkpoint", "orient", "cli",
                              env={"ORIENT_ROOT": str(orient_root)})  # TODO: wire up
             assert cli_result.exit_code != 0
 

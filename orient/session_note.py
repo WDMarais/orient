@@ -135,7 +135,7 @@ def run_session_note(
     preflight = run_preflight(project, topic, mode, orient_root)
 
     if preflight.mode.startswith("error") or preflight.mode == "ambiguous":
-        print(f"orient session-note: {preflight.error or preflight.mode}", file=sys.stderr)
+        print(f"orient session: {preflight.error or preflight.mode}", file=sys.stderr)
         sys.exit(1)
 
     today = date.today().isoformat()

@@ -6,27 +6,29 @@ makes LLM sessions productive and cost-efficient across personal projects.
 
 ## Status
 
-Implementation complete. All 11 modules shipped; 154/155 tests green (1 known spec gap: NOTES.md sweep on close).
+Implementation complete; 154/155 tests green (1 known spec gap: NOTES.md sweep on close).
+Command surface migrated to the day/session lifecycle spine. `day close`, `session start`,
+and `--date` backdating are specced (spec-day-close.md, spec.md) but not yet built.
 
 ## Usage patterns
 
 **SOD**
 ```
-orient brief              # ranked active topics + recommended next actions
+orient day start          # ranked active topics + recommended next actions
                           # read, pick topic, start Claude session with brief as context
 ```
-`orient brief` output is a *claim* Claude audits at session start, not instructions it executes — the SOD seam is intentionally manual.
+`orient day start` output is a *claim* Claude audits at session start, not instructions it executes — the SOD seam is intentionally manual.
 
 **Session close** (run inside the active Claude session)
 ```
-orient session-note close <project> <topic>
+orient session close <project> <topic>
 # prints skeleton path + previous note
 # fill Goal/Shipped/Pending/Deferred/phase — Claude has session context to help
 ```
 
 **Mid-session checkpoint** (before compaction, venue swap, context limit)
 ```
-orient session-note checkpoint <project> <topic>
+orient session checkpoint <project> <topic>
 # appends ### Checkpoint N - HH:MM to current note
 ```
 

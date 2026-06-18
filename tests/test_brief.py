@@ -197,7 +197,7 @@ class TestBriefFrontmatter:
         make_workspace(orient_root, [{"name": "re-owm", "path": "/tmp/re-owm"}])
         _write_note(orient_root, "re-owm", "mcp", _days_ago(1), phase_line="harness-writer-complete")
 
-        result = run("brief", env={"ORIENT_ROOT": str(orient_root)})
+        result = run("day", "start", env={"ORIENT_ROOT": str(orient_root)})
         fm = parse_brief_frontmatter(orient_root / "morning-brief.md")
         assert fm.date == _today()
         assert fm.active_topics >= 1
@@ -216,7 +216,7 @@ class TestBriefFrontmatter:
         _write_note(orient_root, "orient", "cli", _days_ago(1), phase_line="case-interviewer-in-progress",
                     pending=["finish sync cases"])
 
-        result = run("brief", env={"ORIENT_ROOT": str(orient_root)})
+        result = run("day", "start", env={"ORIENT_ROOT": str(orient_root)})
         fm = parse_brief_frontmatter(orient_root / "morning-brief.md")
         priorities = [a.priority for a in fm.next_actions]
         assert priorities == sorted(priorities)   # ascending priority order
@@ -225,7 +225,7 @@ class TestBriefFrontmatter:
         make_workspace(orient_root, [{"name": "re-owm", "path": "/tmp/re-owm"}])
         _write_note(orient_root, "re-owm", "mcp", _days_ago(1), phase_line="harness-writer-complete")
 
-        result = run("brief", env={"ORIENT_ROOT": str(orient_root)})
+        result = run("day", "start", env={"ORIENT_ROOT": str(orient_root)})
         fm = parse_brief_frontmatter(orient_root / "morning-brief.md")
         mcp_action = next(a for a in fm.next_actions if "mcp" in a.topic)
         assert mcp_action.priority == 1
@@ -237,7 +237,7 @@ class TestBriefFrontmatter:
             f"{_today()} 10:01  [untagged]  note two\n"
         )
 
-        result = run("brief", env={"ORIENT_ROOT": str(orient_root)})
+        result = run("day", "start", env={"ORIENT_ROOT": str(orient_root)})
         fm = parse_brief_frontmatter(orient_root / "morning-brief.md")
         assert fm.notes_unreviewed == 2
 
@@ -245,7 +245,7 @@ class TestBriefFrontmatter:
         make_workspace(orient_root, [{"name": "re-owm", "path": "/tmp/re-owm"}])
         _write_note(orient_root, "re-owm", "mcp", _days_ago(1))
 
-        result = run("brief", env={"ORIENT_ROOT": str(orient_root)})
+        result = run("day", "start", env={"ORIENT_ROOT": str(orient_root)})
         fm = parse_brief_frontmatter(orient_root / "morning-brief.md")
         assert fm.notes_unreviewed == 0
 
@@ -254,8 +254,8 @@ class TestBriefFrontmatter:
         _write_note(orient_root, "re-owm", "mcp", _days_ago(1))
         brief_path = orient_root / "morning-brief.md"
 
-        run("brief", env={"ORIENT_ROOT": str(orient_root)})
-        run("brief", env={"ORIENT_ROOT": str(orient_root)})
+        run("day", "start", env={"ORIENT_ROOT": str(orient_root)})
+        run("day", "start", env={"ORIENT_ROOT": str(orient_root)})
 
         content = brief_path.read_text()
         assert content.count("date:") == 1    # not doubled
@@ -271,7 +271,7 @@ class TestTopicInclusion:
         make_workspace(orient_root, [{"name": "re-owm", "path": "/tmp/re-owm"}])
         _write_note(orient_root, "re-owm", "mcp", _days_ago(1), phase_line="unrecognised-phase")
 
-        result = run("brief", env={"ORIENT_ROOT": str(orient_root)})
+        result = run("day", "start", env={"ORIENT_ROOT": str(orient_root)})
         fm = parse_brief_frontmatter(orient_root / "morning-brief.md")
         mcp_action = next((a for a in fm.next_actions if "mcp" in a.topic), None)
         assert mcp_action is not None
@@ -282,7 +282,7 @@ class TestTopicInclusion:
         # Note is beyond active_days and project is not pinned
         _write_note(orient_root, "re-owm", "mcp", _days_ago(30))
 
-        result = run("brief", env={"ORIENT_ROOT": str(orient_root)})
+        result = run("day", "start", env={"ORIENT_ROOT": str(orient_root)})
         fm = parse_brief_frontmatter(orient_root / "morning-brief.md")
         assert fm.next_actions == []
 
@@ -290,7 +290,7 @@ class TestTopicInclusion:
         make_workspace(orient_root, [{"name": "re-owm", "path": "/tmp/re-owm"}])
         _write_note(orient_root, "re-owm", "mcp", _days_ago(30))
 
-        result = run("brief", env={"ORIENT_ROOT": str(orient_root)})
+        result = run("day", "start", env={"ORIENT_ROOT": str(orient_root)})
         assert "orient config add-project" in result.output
         assert "--pinned" in result.output
 
@@ -298,16 +298,16 @@ class TestTopicInclusion:
         make_workspace(orient_root, [{"name": "re-owm", "path": "/tmp/re-owm", "pinned": True}])
         # No notes written for this topic
 
-        result = run("brief", env={"ORIENT_ROOT": str(orient_root)})
+        result = run("day", "start", env={"ORIENT_ROOT": str(orient_root)})
         fm = parse_brief_frontmatter(orient_root / "morning-brief.md")
         assert any("re-owm" in a.topic for a in fm.next_actions)
 
     def test_no_notes_anywhere_first_run_message(self, orient_root):
         make_workspace(orient_root, [{"name": "re-owm", "path": "/tmp/re-owm"}])
 
-        result = run("brief", env={"ORIENT_ROOT": str(orient_root)})
+        result = run("day", "start", env={"ORIENT_ROOT": str(orient_root)})
         assert "no session notes found" in result.output or "session" in result.output
-        assert "session-note close" in result.output
+        assert "session close" in result.output
 
 
 # ---------------------------------------------------------------------------
@@ -320,7 +320,7 @@ class TestCloseReasonSurfacing:
         make_workspace(orient_root, [{"name": "re-owm", "path": "/tmp/re-owm"}])
         _write_note(orient_root, "re-owm", "mcp", _days_ago(1), close_reason="budget-hit")
 
-        result = run("brief", env={"ORIENT_ROOT": str(orient_root)})
+        result = run("day", "start", env={"ORIENT_ROOT": str(orient_root)})
         assert "budget" in result.output
         assert "re-owm/mcp" in result.output
 
@@ -328,7 +328,7 @@ class TestCloseReasonSurfacing:
         make_workspace(orient_root, [{"name": "re-owm", "path": "/tmp/re-owm"}])
         _write_note(orient_root, "re-owm", "mcp", _days_ago(1), close_reason="context-limit")
 
-        result = run("brief", env={"ORIENT_ROOT": str(orient_root)})
+        result = run("day", "start", env={"ORIENT_ROOT": str(orient_root)})
         assert "context limit" in result.output
         assert "compact" in result.output
 
@@ -343,7 +343,7 @@ class TestCliOutput:
         make_workspace(orient_root, [{"name": "re-owm", "path": "/tmp/re-owm"}])
         _write_note(orient_root, "re-owm", "mcp", _days_ago(1), phase_line="harness-writer-complete")
 
-        result = run("brief", env={"ORIENT_ROOT": str(orient_root)})
+        result = run("day", "start", env={"ORIENT_ROOT": str(orient_root)})
         assert result.exit_code == 0
         # Frontmatter delimiters should not appear in stdout
         assert "---" not in result.output or result.output.count("---") == 0  # TODO: tighten
@@ -352,7 +352,7 @@ class TestCliOutput:
         make_workspace(orient_root, [{"name": "re-owm", "path": "/tmp/re-owm"}])
         _write_note(orient_root, "re-owm", "mcp", _days_ago(1))
 
-        run("brief", env={"ORIENT_ROOT": str(orient_root)})
+        run("day", "start", env={"ORIENT_ROOT": str(orient_root)})
         assert (orient_root / "morning-brief.md").exists()
 
 
@@ -363,7 +363,7 @@ class TestCliOutput:
 @pytest.mark.brief
 class TestErrorCases:
     def test_no_workspace_toml_shows_first_run_guidance(self, orient_root):
-        result = run("brief", env={"ORIENT_ROOT": str(orient_root)})
+        result = run("day", "start", env={"ORIENT_ROOT": str(orient_root)})
         assert result.exit_code != 0
         assert "orient is not configured yet" in result.output
 
@@ -373,7 +373,7 @@ class TestErrorCases:
         note_root.mkdir()
         note_root.chmod(0o555)
 
-        result = run("brief", env={"ORIENT_ROOT": str(orient_root)})
+        result = run("day", "start", env={"ORIENT_ROOT": str(orient_root)})
         assert result.exit_code != 0
         assert "cannot write" in result.output
         assert "note_root" in result.output or "notes" in result.output

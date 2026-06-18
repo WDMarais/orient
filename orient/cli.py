@@ -28,6 +28,11 @@ app = typer.Typer(name="orient", no_args_is_help=True, add_completion=False)
 config_app = typer.Typer(name="config", invoke_without_command=True, no_args_is_help=False, add_completion=False)
 app.add_typer(config_app, name="config")
 
+day_app = typer.Typer(name="day", no_args_is_help=True, add_completion=False)
+app.add_typer(day_app, name="day")
+session_app = typer.Typer(name="session", no_args_is_help=True, add_completion=False)
+app.add_typer(session_app, name="session")
+
 
 def _orient_root() -> Path:
     return Path(os.environ.get("ORIENT_ROOT", "~/.orient")).expanduser()
@@ -131,33 +136,40 @@ def sync(
 
 
 # ---------------------------------------------------------------------------
-# session-note
+# session — checkpoint / close
 # ---------------------------------------------------------------------------
 
-@app.command("session-note")
-def session_note_cmd(
-    mode: str,
-    project: str,
-    topic: str,
-    reason_arg: Annotated[Optional[str], typer.Argument()] = None,
-) -> None:
+def _run_session(project: str, topic: str, mode: str, reason: str) -> None:
     orient_root = _orient_root()
-    reason = "natural-end"
-    if reason_arg and reason_arg.startswith("reason:"):
-        reason = reason_arg[len("reason:"):]
-
     try:
         run_session_note(project, topic, mode, orient_root, reason=reason)
     except SystemExit as exc:
         raise typer.Exit(code=int(exc.code) if exc.code else 1)
 
 
+@session_app.command("checkpoint")
+def session_checkpoint(project: str, topic: str) -> None:
+    _run_session(project, topic, "checkpoint", reason="natural-end")
+
+
+@session_app.command("close")
+def session_close(
+    project: str,
+    topic: str,
+    reason_arg: Annotated[Optional[str], typer.Argument()] = None,
+) -> None:
+    reason = "natural-end"
+    if reason_arg and reason_arg.startswith("reason:"):
+        reason = reason_arg[len("reason:"):]
+    _run_session(project, topic, "close", reason=reason)
+
+
 # ---------------------------------------------------------------------------
-# brief
+# day — start (morning brief)
 # ---------------------------------------------------------------------------
 
-@app.command()
-def brief() -> None:
+@day_app.command("start")
+def day_start() -> None:
     orient_root = _orient_root()
     _require_config(orient_root)
 
