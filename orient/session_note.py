@@ -14,6 +14,7 @@ from orient.lib.note_parser import (
     find_latest_note,
 )
 from orient.preflight import run_preflight
+from orient.state import mark_active_topic
 
 
 @dataclass
@@ -228,6 +229,9 @@ def run_session_start(project: str, topic: str, orient_root: Path) -> None:
     note_path.parent.mkdir(parents=True, exist_ok=True)
 
     prev_parsed = _load_prev(preflight.prev_path)
+
+    # Starting a session marks the topic active for day start, regardless of mode.
+    mark_active_topic(orient_root, project, topic)
 
     if preflight.mode == "append":
         # Already started today: idempotent re-surface, no checkpoint marker.

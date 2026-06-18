@@ -8,8 +8,9 @@ makes LLM sessions productive and cost-efficient across personal projects.
 
 Implementation complete; 154/155 tests green (1 known spec gap: NOTES.md sweep on close).
 Command surface migrated to the day/session lifecycle spine. `session start` scaffolds a
-session with a cold brief. `day close` and `--date` backdating are specced
-(spec-day-close.md, spec.md) but not yet built.
+session with a cold brief and auto-marks the topic active. The active-topics registry
+(`orient topic mark|drop|list`) is built and persisted in state.toml. Still to build:
+`day start` consuming the registry, `day close`, and `--date` backdating (all specced).
 
 ## Usage patterns
 
@@ -40,6 +41,13 @@ orient session checkpoint <project> <topic>
 # appends ### Checkpoint N - HH:MM to current note
 ```
 
+**Mark a topic active** (seed day start; session start does this automatically)
+```
+orient topic mark <project> <topic>     # surfaces in day start even with no notes/marker
+orient topic list                        # show active set
+orient topic drop <project> <topic>      # deactivate
+```
+
 **Quick capture** (mid-session, don't break flow)
 ```
 orient note "observation text"   # tag inferred from cwd; lands in NOTES.md, swept into next brief
@@ -62,6 +70,7 @@ orient status             # freshness + uncommitted state across workspace
 | `spec-status.md` | Read-only repo state display with freshness fast path |
 | `spec-note.md` | Lightweight observation capture |
 | `spec-config.md` | workspace.toml management |
+| `spec-topic.md` | active-topics registry (`orient topic`) that day start ranks |
 | `spec-brief.md` | day-start: SOD context + queue (Haiku) |
 | `spec-day-close.md` | day-close: EOD aggregate → marker + pre-plan (Haiku) |
 | `spec-session-note.md` | session checkpoint/close notes (preflight + Haiku sweep) |

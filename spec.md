@@ -23,7 +23,9 @@ Multi-provider routing and fanout strategy belong to the orchestrator layer
 
 **State vs artifact distinction.** `~/.orient/state.toml` holds durable operational
 knowledge orient uses for local machine-level decisions: `last_synced_hash` and
-`last_synced_at` per project, `last_brief` date, last session-note path per topic.
+`last_synced_at` per project, `last_brief` date, last session-note path per topic,
+and the `active_topics` registry (explicit "working on this" set, preserved across
+all state writes).
 `last_synced_at` drives the status freshness fast path: if a project was synced within
 the freshness window (default 60 min) and local HEAD still matches `last_synced_hash`,
 status skips the upstream fetch for that project. State is never passed
@@ -78,8 +80,11 @@ LIFECYCLE SPINE
   orient day close                       day-close  — aggregate + pre-plan      (Haiku)
 
 UTILITIES (anytime)
-  orient sync | status | note | config
+  orient sync | status | note | config | topic
 ```
+
+The active-topics registry (`orient topic mark|drop|list`) is the explicit set
+`day start` ranks; `session start` auto-marks. See spec-topic.md.
 
 Sizing principle: session edges are **mechanical** (deterministic scaffolding, no API
 call); day edges are **Haiku** synthesis (ranking, pre-plan). See the
@@ -94,6 +99,7 @@ backdating invariant above for `--date` on the two close edges.
 | status | `orient status` | [spec-status.md](spec-status.md) | Repo state display without sync |
 | note | `orient note` | [spec-note.md](spec-note.md) | Lightweight observation capture |
 | config | `orient config` | [spec-config.md](spec-config.md) | workspace.toml management (incl. multi-root profiles) |
+| topic | `orient topic mark\|drop\|list` | [spec-topic.md](spec-topic.md) | Active-topics registry that day start ranks |
 | day-start | `orient day start` | [spec-brief.md](spec-brief.md) | SOD context + queue (Haiku skill) |
 | day-close | `orient day close` | [spec-day-close.md](spec-day-close.md) | EOD aggregate of today's notes → marker + pre-plan (Haiku) |
 | session | `orient session start\|checkpoint\|close` | [spec-session-note.md](spec-session-note.md) | Scaffold / checkpoint / close session notes (mechanical + preflight) |

@@ -20,7 +20,14 @@ from orient.config import (
 )
 from orient.note import append_note
 from orient.session_note import run_session_note, run_session_start
-from orient.state import ProjectState, load_state, save_state
+from orient.state import (
+    ProjectState,
+    drop_active_topic,
+    load_active_topics,
+    load_state,
+    mark_active_topic,
+    save_state,
+)
 from orient.status import compute_status
 from orient.sync import sync_all
 
@@ -32,6 +39,8 @@ day_app = typer.Typer(name="day", no_args_is_help=True, add_completion=False)
 app.add_typer(day_app, name="day")
 session_app = typer.Typer(name="session", no_args_is_help=True, add_completion=False)
 app.add_typer(session_app, name="session")
+topic_app = typer.Typer(name="topic", no_args_is_help=True, add_completion=False)
+app.add_typer(topic_app, name="topic")
 
 
 def _orient_root() -> Path:
@@ -171,6 +180,40 @@ def session_close(
     if reason_arg and reason_arg.startswith("reason:"):
         reason = reason_arg[len("reason:"):]
     _run_session(project, topic, "close", reason=reason)
+
+
+# ---------------------------------------------------------------------------
+# topic — active-topics registry
+# ---------------------------------------------------------------------------
+
+@topic_app.command("mark")
+def topic_mark(project: str, topic: str) -> None:
+    orient_root = _orient_root()
+    if mark_active_topic(orient_root, project, topic):
+        typer.echo(f"marked active: {project}/{topic}")
+    else:
+        typer.echo(f"already active: {project}/{topic}")
+
+
+@topic_app.command("drop")
+def topic_drop(project: str, topic: str) -> None:
+    orient_root = _orient_root()
+    if drop_active_topic(orient_root, project, topic):
+        typer.echo(f"dropped: {project}/{topic}")
+    else:
+        typer.echo(f"not active: {project}/{topic}")
+
+
+@topic_app.command("list")
+def topic_list() -> None:
+    orient_root = _orient_root()
+    topics = load_active_topics(orient_root)
+    if not topics:
+        typer.echo("no active topics")
+        typer.echo("  orient topic mark <project> <topic>")
+        return
+    for t in topics:
+        typer.echo(t)
 
 
 # ---------------------------------------------------------------------------
