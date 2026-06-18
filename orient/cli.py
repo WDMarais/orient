@@ -106,6 +106,8 @@ def sync(
         else:
             if r.behind > 0:
                 parts.append(f"+{r.behind}")
+            if r.ahead > 0 and not r.pushed:
+                parts.append(f"↑{r.ahead} ahead")
             if r.pushed:
                 parts.append("↑ pushed")
             if r.dirty:
@@ -239,6 +241,8 @@ def status(
         else:
             if r.behind > 0:
                 parts.append(f"+{r.behind}")
+            if r.ahead > 0:
+                parts.append(f"↑{r.ahead} ahead")
             if r.dirty:
                 parts.append(f"dirty ({r.dirty_count} files)")
             if r.modified and suggest_backup:
