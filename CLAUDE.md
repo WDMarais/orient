@@ -52,8 +52,9 @@ orient status             # freshness + uncommitted state across workspace
 | `spec-status.md` | Read-only repo state display with freshness fast path |
 | `spec-note.md` | Lightweight observation capture |
 | `spec-config.md` | workspace.toml management |
-| `spec-brief.md` | SOD context + queue (Haiku skill) |
-| `spec-session-note.md` | Checkpoint/close session notes (Haiku + preflight) |
+| `spec-brief.md` | day-start: SOD context + queue (Haiku) |
+| `spec-day-close.md` | day-close: EOD aggregate → marker + pre-plan (Haiku) |
+| `spec-session-note.md` | session checkpoint/close notes (preflight + Haiku sweep) |
 
 ## Architecture
 

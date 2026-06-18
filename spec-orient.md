@@ -5,7 +5,7 @@ Part of [orient behavioral spec](spec.md).
 Human-facing by default. Output is readable, contextual, and UX-considered.
 `--agent-friendly` (planned, not MVP) opts into strict schema, token compression, and
 disambiguation-over-readability for automation contexts where humans aren't in the loop.
-Applies to any command that produces output: sync, status, config show, brief.
+Applies to any command that produces output: sync, status, config show, day start.
 LLMs spawning with orient context arrive knowing the surface and don't need discovery.
 
 ## orient (no subcommand)
@@ -19,8 +19,8 @@ orient
   →   status        Show project state without syncing
   →   note          Capture an observation to NOTES.md
   →   config        Manage workspace.toml
-  →   brief         Generate morning brief (Haiku)
-  →   session-note  Write session note — checkpoint or close (Haiku)
+  →   day           Day lifecycle — start (morning brief) / close (EOD aggregate)  (Haiku)
+  →   session       Session lifecycle — start / checkpoint / close
   →
   → Config: ~/.orient/workspace.toml  (ORIENT_ROOT=~/.orient)
   →
@@ -37,10 +37,10 @@ orient --version
 
 ```
 orient sync (ANTHROPIC_API_KEY not set; command requires Haiku)
-  → error: ANTHROPIC_API_KEY not set — required for orient brief and orient session-note
+  → error: ANTHROPIC_API_KEY not set — required for orient day and orient session close
   → sync, status, config, and note do not require it
 
-orient brief (ANTHROPIC_API_KEY set but invalid — API returns auth error)
+orient day start (ANTHROPIC_API_KEY set but invalid — API returns auth error)
   → error: Anthropic API authentication failed — check ANTHROPIC_API_KEY
 
 orient sync (ORIENT_ROOT set but path does not exist)
