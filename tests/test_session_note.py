@@ -1,7 +1,7 @@
 """Tests for orient session behavioral contract.
 
 Spec: spec-session-note.md
-One operation, two modes: checkpoint (mid-session) and close (terminal).
+Three edges: start (scaffold + cold brief), checkpoint (mid-session), close (terminal).
 
 Layers:
   1. Python preflight - deterministic; resolves note path, produces routing token
@@ -249,6 +249,80 @@ class TestCheckpointMode:
 
         note_path = _note_path(orient_root, "orient", "cli", _today())
         assert note_path.exists()
+
+
+# ---------------------------------------------------------------------------
+# Start mode
+# ---------------------------------------------------------------------------
+
+@pytest.mark.session_note
+class TestStartMode:
+    def test_start_scaffolds_today_note_with_rollforward(self, orient_root):
+        make_workspace(orient_root, [{"name": "orient", "path": "/tmp/orient"}])
+        _write_prev_note(orient_root, "orient", "cli", "2026-05-23",
+                         pending=["finish sync cases"],
+                         deferred=["hub-marker equivalent → dropped"])
+
+        result = run("session", "start", "orient", "cli",
+                     env={"ORIENT_ROOT": str(orient_root)})
+        assert result.exit_code == 0
+
+        content = _note_path(orient_root, "orient", "cli", _today()).read_text()
+        assert "finish sync cases" in content
+        assert "hub-marker equivalent → dropped" in content
+
+    def test_start_does_not_write_session_section(self, orient_root):
+        make_workspace(orient_root, [{"name": "orient", "path": "/tmp/orient"}])
+        _write_prev_note(orient_root, "orient", "cli", "2026-05-23")
+
+        run("session", "start", "orient", "cli",
+            env={"ORIENT_ROOT": str(orient_root)})
+
+        note = parse_note(_note_path(orient_root, "orient", "cli", _today()))
+        assert note.session is None
+
+    def test_start_surfaces_prev_context_in_output(self, orient_root):
+        make_workspace(orient_root, [{"name": "orient", "path": "/tmp/orient"}])
+        _write_prev_note(orient_root, "orient", "cli", "2026-05-23",
+                         pending=["finish sync cases"])
+
+        result = run("session", "start", "orient", "cli",
+                     env={"ORIENT_ROOT": str(orient_root)})
+        assert "resuming" in result.output
+        assert "finish sync cases" in result.output
+
+    def test_start_no_prev_is_fresh(self, orient_root):
+        make_workspace(orient_root, [{"name": "orient", "path": "/tmp/orient"}])
+
+        result = run("session", "start", "orient", "cli",
+                     env={"ORIENT_ROOT": str(orient_root)})
+        assert result.exit_code == 0
+        assert "fresh start" in result.output
+        assert _note_path(orient_root, "orient", "cli", _today()).exists()
+
+    def test_start_idempotent_no_checkpoint_marker(self, orient_root):
+        make_workspace(orient_root, [{"name": "orient", "path": "/tmp/orient"}])
+        today_path = _note_path(orient_root, "orient", "cli", _today())
+        today_path.parent.mkdir(parents=True, exist_ok=True)
+        original = f"# {_today()} - orient/cli\n\n## Goal\nToday\n\n## Pending\n- original item\n"
+        today_path.write_text(original)
+
+        run("session", "start", "orient", "cli",
+            env={"ORIENT_ROOT": str(orient_root)})
+
+        note = parse_note(today_path)
+        assert note.checkpoint_count == 0
+        assert "original item" in today_path.read_text()
+
+    def test_start_surfaces_alarm_reason(self, orient_root):
+        make_workspace(orient_root, [{"name": "orient", "path": "/tmp/orient"}])
+        _write_prev_note(orient_root, "orient", "cli", "2026-05-23",
+                         close_reason="budget-hit")
+
+        result = run("session", "start", "orient", "cli",
+                     env={"ORIENT_ROOT": str(orient_root)})
+        assert "budget-hit" in result.output
+        assert "review before resuming" in result.output
 
 
 # ---------------------------------------------------------------------------

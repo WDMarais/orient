@@ -7,8 +7,9 @@ makes LLM sessions productive and cost-efficient across personal projects.
 ## Status
 
 Implementation complete; 154/155 tests green (1 known spec gap: NOTES.md sweep on close).
-Command surface migrated to the day/session lifecycle spine. `day close`, `session start`,
-and `--date` backdating are specced (spec-day-close.md, spec.md) but not yet built.
+Command surface migrated to the day/session lifecycle spine. `session start` scaffolds a
+session with a cold brief. `day close` and `--date` backdating are specced
+(spec-day-close.md, spec.md) but not yet built.
 
 ## Usage patterns
 
@@ -18,6 +19,13 @@ orient day start          # ranked active topics + recommended next actions
                           # read, pick topic, start Claude session with brief as context
 ```
 `orient day start` output is a *claim* Claude audits at session start, not instructions it executes — the SOD seam is intentionally manual.
+
+**Session start** (begin work on a topic)
+```
+orient session start <project> <topic>
+# scaffolds today's note with rolled-forward Pending/Deferred
+# prints a cold brief of where the topic left off — idempotent, safe to re-run
+```
 
 **Session close** (run inside the active Claude session)
 ```

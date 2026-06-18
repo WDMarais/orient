@@ -307,7 +307,7 @@ class TestTopicInclusion:
 
         result = run("day", "start", env={"ORIENT_ROOT": str(orient_root)})
         assert "no session notes found" in result.output or "session" in result.output
-        assert "session close" in result.output
+        assert "session start" in result.output
 
 
 # ---------------------------------------------------------------------------

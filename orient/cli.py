@@ -19,7 +19,7 @@ from orient.config import (
     validate_workspace,
 )
 from orient.note import append_note
-from orient.session_note import run_session_note
+from orient.session_note import run_session_note, run_session_start
 from orient.state import ProjectState, load_state, save_state
 from orient.status import compute_status
 from orient.sync import sync_all
@@ -143,6 +143,15 @@ def _run_session(project: str, topic: str, mode: str, reason: str) -> None:
     orient_root = _orient_root()
     try:
         run_session_note(project, topic, mode, orient_root, reason=reason)
+    except SystemExit as exc:
+        raise typer.Exit(code=int(exc.code) if exc.code else 1)
+
+
+@session_app.command("start")
+def session_start(project: str, topic: str) -> None:
+    orient_root = _orient_root()
+    try:
+        run_session_start(project, topic, orient_root)
     except SystemExit as exc:
         raise typer.Exit(code=int(exc.code) if exc.code else 1)
 

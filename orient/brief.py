@@ -348,8 +348,8 @@ def run_brief(
         prose = response.content[0].text.strip()
     elif not token.topics:
         prose = (
-            "No active topics. Use `orient session close` to record a session,\n"
-            "or `orient config add-project --pinned` to pin a project that's always active."
+            "No active topics yet. Start one with `orient session start <project> <topic>`,\n"
+            "or pin an always-active project: `orient config add-project <name> <path> --pinned`."
         )
     else:
         topic_map = {t.topic: t for t in token.topics}

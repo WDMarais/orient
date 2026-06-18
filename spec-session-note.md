@@ -2,9 +2,11 @@
 
 Part of [orient behavioral spec](spec.md).
 
-One operation, two modes. Invoked as `orient session checkpoint` (mid-session) or
+Three edges, one note machinery. Invoked as `orient session start` (scaffold + cold
+brief at session open), `orient session checkpoint` (mid-session marker), or
 `orient session close` (terminal). Shared: preflight routing, rollforward invariant,
-note format. Distinct: close adds `## Session` GC sweep that checkpoint never writes.
+note format. Distinct: start surfaces a cold brief and is idempotent (never adds a
+checkpoint marker); close adds the `## Session` GC sweep that the others never write.
 
 **Rollforward invariant**: the latest note for any topic is always fully
 self-contained. Nothing drops silently. Pending items either land in Shipped or
@@ -50,6 +52,35 @@ destination.
 ```
 
 Omit empty sections. `## Session` is close-only. `## Calls` is omit-if-empty; it is the input feed for future cross-project synthesis (brief) and the SRS pipeline — capture non-obvious decisions with brief rationale and a revisit condition.
+
+## Start mode
+
+Session open: scaffold today's note (if absent) with rolled-forward Pending/Deferred,
+and surface a **cold brief** of where the topic left off. Mechanical (no Haiku).
+Idempotent — re-running when today's note exists re-surfaces context without adding a
+marker or overwriting. Writes no `## Session` (it is not a close).
+
+```
+orient session start (no note today; prev note has pending/deferred)
+  → preflight: mode:new prev:<path>
+  → writes today's skeleton with rollforward (no ## Session)
+  → prints cold brief:
+      --- resuming <project>/<topic> (last note <date>) ---
+      Goal / Pending (n) / Deferred (n)
+
+orient session start (no previous note, no today note)
+  → preflight: mode:no-prev
+  → writes fresh empty skeleton
+  → prints: fresh start - no prior notes for <project>/<topic>
+
+orient session start (today's note already exists)
+  → preflight: mode:append
+  → does NOT add a checkpoint marker; does NOT overwrite
+  → prints: session already started today: <path>  + cold brief
+
+orient session start (prev closed with reason budget-hit / context-limit)
+  → cold brief flags it: [!] last session: budget-hit - review before resuming
+```
 
 ## Checkpoint mode
 
@@ -176,19 +207,21 @@ orient session (preflight output unrecognised)
 
 ```
 orient session --help
-  → Usage: orient session <mode>
+  → Usage: orient session <edge>
   →
+  → start       Scaffold today's note + cold brief of where the topic left off
   → checkpoint  Write or update today's note; continue session
   → close       Terminal: full note + GC sweep + ## Session section
   →
-  → Both modes: rollforward Pending/Deferred from previous note. Nothing drops silently.
+  → All edges: rollforward Pending/Deferred from previous note. Nothing drops silently.
+  → Start only:  cold brief, idempotent, no marker, no ## Session
   → Close only:  ## Session (reason, cost, duration), NOTES.md sweep
   →
   → Reason values for close:
   →   natural-end | budget-hit | context-limit | human-stepped-away
   →
   → Examples:
+  →   orient session start orient cli
   →   orient session checkpoint
   →   orient session close reason:budget-hit
-  →   orient session close reason:natural-end
 ```
