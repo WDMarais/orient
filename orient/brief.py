@@ -14,6 +14,7 @@ from orient.config import load_effective_config
 from orient.lib.note_parser import find_latest_note
 from orient.note import parse_notes_md
 from orient.session_note import parse_note
+from orient.state import load_active_topics
 
 
 @dataclass
@@ -72,6 +73,17 @@ def get_next_action(
 ) -> TopicAction:
     lookup = recommended_next_phase if (recommended_next_phase and recommended_next_phase in _PHASE_TABLE) else phase
 
+    if phase == "no-notes" and lookup not in _PHASE_TABLE:
+        # Active but not yet started (registry-marked or pinned, no session phase):
+        # surface the command to begin a session. day start never auto-starts.
+        return TopicAction(
+            topic=f"{project}/{topic}",
+            phase="no-notes",
+            skill="session-start",
+            invocation=f"orient session start {project} {topic}",
+            priority=2,
+        )
+
     if lookup not in _PHASE_TABLE:
         return TopicAction(
             topic=f"{project}/{topic}",
@@ -104,8 +116,10 @@ def build_preflight_token(
 
     note_root = orient_root / "notes"
     cutoff = (date.today() - timedelta(days=active_days)).isoformat()
+    active_set = set(load_active_topics(orient_root))
 
     topics: list[TopicPreflight] = []
+    seen: set[str] = set()
 
     for project in projects:
         project_note_dir = note_root / project.name
@@ -126,14 +140,16 @@ def build_preflight_token(
 
             latest = find_latest_note(note_root, project.name, topic_name)
             if latest is None:
-                if project.pinned:
+                if project.pinned or topic_str in active_set:
                     topics.append(TopicPreflight(
                         topic=topic_str, note_path="", phase="no-notes",
                     ))
+                    seen.add(topic_str)
                 continue
 
             is_active = latest.stem >= cutoff
-            if not is_active and not project.pinned:
+            # Explicitly-marked and pinned topics surface regardless of recency.
+            if not is_active and not project.pinned and topic_str not in active_set:
                 continue
 
             try:
@@ -154,6 +170,32 @@ def build_preflight_token(
                 pending=parsed.pending,
                 deferred=parsed.deferred,
             ))
+            seen.add(topic_str)
+
+    # Registry topics not surfaced above: marked but with no note dir yet, or under a
+    # project that is not in the workspace config. They appear regardless.
+    for key in active_set:
+        if key in seen or "/" not in key:
+            continue
+        proj_name, topic_name = key.split("/", 1)
+        latest = find_latest_note(note_root, proj_name, topic_name)
+        if latest is None:
+            topics.append(TopicPreflight(topic=key, note_path="", phase="no-notes"))
+        else:
+            try:
+                parsed = parse_note(latest)
+                topics.append(TopicPreflight(
+                    topic=key,
+                    note_path=str(latest),
+                    phase=parsed.session.phase if parsed.session else "no-notes",
+                    recommended_next_phase=parsed.session.recommended_next_phase if parsed.session else None,
+                    close_reason=parsed.session.reason if parsed.session else None,
+                    pending=parsed.pending,
+                    deferred=parsed.deferred,
+                ))
+            except Exception:
+                topics.append(TopicPreflight(topic=key, note_path="", phase="no-notes"))
+        seen.add(key)
 
     notes_since: list[str] = []
     notes_md = orient_root / "NOTES.md"

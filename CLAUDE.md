@@ -9,8 +9,9 @@ makes LLM sessions productive and cost-efficient across personal projects.
 Implementation complete; 154/155 tests green (1 known spec gap: NOTES.md sweep on close).
 Command surface migrated to the day/session lifecycle spine. `session start` scaffolds a
 session with a cold brief and auto-marks the topic active. The active-topics registry
-(`orient topic mark|drop|list`) is built and persisted in state.toml. Still to build:
-`day start` consuming the registry, `day close`, and `--date` backdating (all specced).
+(`orient topic mark|drop|list`) is built and persisted in state.toml, and `day start`
+ranks it — a marked topic surfaces with an `orient session start` line even with no
+notes or marker. Still to build: `day close` and `--date` backdating (both specced).
 
 ## Usage patterns
 

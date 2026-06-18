@@ -131,9 +131,9 @@ orient brief (no active topics — all dormant beyond active_days, none pinned)
   → "No active topics. Consider pinning a project:
       orient config add-project <name> <path> --pinned"
 
-orient brief (pinned topic with no session notes yet)
+orient brief (pinned or registry-marked topic with no session notes yet)
   → surfaces regardless of activity model
-  → ## Do first: "<project>/<topic> — no notes found → start a session and run /session-note close"
+  → next_action invocation: `orient session start <project> <topic>` (phase: no-notes)
 
 orient brief (no session notes anywhere — first run after config)
   → orient is configured but no session notes found.
@@ -202,7 +202,9 @@ orient brief --help
   →   ~/.orient/morning-brief.md   frontmatter + prose (full artifact)
   →   stdout                       prose section only
   →
-  → Active topics: projects with notes touched within active_days (default: 14), or pinned.
+  → Active topics: topics with notes within active_days (default: 14), pinned projects,
+  →   or topics in the active-topics registry (orient topic mark; session start auto-marks).
+  →   Registry topics surface regardless of recency, each with an orient session start line.
   → Priority order: phase-transition topics first, pending-only second, deferred-heavy third.
   →
   → Example:

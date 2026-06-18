@@ -6,6 +6,7 @@ project/topic keys, independent of note recency and day-close markers.
 """
 from __future__ import annotations
 
+from orient.brief import parse_brief_frontmatter
 from orient.state import (
     ProjectState,
     drop_active_topic,
@@ -93,3 +94,31 @@ def test_session_start_marks_topic_active(orient_root):
     make_workspace(orient_root, [{"name": "orient", "path": "/tmp/orient"}])
     run("session", "start", "orient", "cli", env={"ORIENT_ROOT": str(orient_root)})
     assert "orient/cli" in load_active_topics(orient_root)
+
+
+# ---------------------------------------------------------------------------
+# day start consumes the registry (asserts on deterministic frontmatter)
+# ---------------------------------------------------------------------------
+
+def test_marked_topic_surfaces_in_day_start_with_no_notes(orient_root):
+    make_workspace(orient_root, [{"name": "orient", "path": "/tmp/orient"}])
+    mark_active_topic(orient_root, "orient", "day-close")  # no notes at all
+
+    run("day", "start", env={"ORIENT_ROOT": str(orient_root)})
+
+    fm = parse_brief_frontmatter(orient_root / "morning-brief.md")
+    actions = {a.topic: a for a in fm.next_actions}
+    assert "orient/day-close" in actions
+    assert actions["orient/day-close"].invocation == "orient session start orient day-close"
+
+
+def test_marked_topic_for_unconfigured_project_surfaces(orient_root):
+    """A registry topic under a project not in the workspace config still appears."""
+    make_workspace(orient_root, [{"name": "orient", "path": "/tmp/orient"}])
+    mark_active_topic(orient_root, "sideproject", "spike")
+
+    run("day", "start", env={"ORIENT_ROOT": str(orient_root)})
+
+    fm = parse_brief_frontmatter(orient_root / "morning-brief.md")
+    topics = {a.topic for a in fm.next_actions}
+    assert "sideproject/spike" in topics
