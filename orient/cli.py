@@ -117,13 +117,15 @@ def sync(
         parts = [r.name]
         if r.error:
             parts.append(f"error: {r.error}")
+        elif r.diverged:
+            parts.append("diverged — manual merge required")
+            if r.dirty:
+                parts.append(f"dirty ({r.dirty_count} files)")
         else:
             if r.behind > 0:
                 parts.append(f"+{r.behind}")
-            if r.ahead > 0 and not r.pushed:
-                parts.append(f"↑{r.ahead} ahead")
-            if r.pushed:
-                parts.append("↑ pushed")
+            if r.ahead > 0:
+                parts.append(f"↑{r.ahead} pushed" if r.pushed else f"↑{r.ahead} (push off)")
             if r.dirty:
                 parts.append(f"dirty ({r.dirty_count} files)")
             if r.modified and suggest_backup:
@@ -302,11 +304,15 @@ def status(
         parts = [r.name]
         if r.error:
             parts.append(f"error: {r.error}")
+        elif r.diverged:
+            parts.append("diverged — manual merge required")
+            if r.dirty:
+                parts.append(f"dirty ({r.dirty_count} files)")
         else:
             if r.behind > 0:
                 parts.append(f"+{r.behind}")
             if r.ahead > 0:
-                parts.append(f"↑{r.ahead} ahead")
+                parts.append(f"↑{r.ahead} (push off)")
             if r.dirty:
                 parts.append(f"dirty ({r.dirty_count} files)")
             if r.modified and suggest_backup:

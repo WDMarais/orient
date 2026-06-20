@@ -467,6 +467,30 @@ class TestRendering:
         assert "↑" in result.output
         assert "pushed" in result.output
 
+    def test_ahead_push_off_renders_up_arrow_push_off(self, orient_root, tmp_path):
+        local, remote = make_remote_pair(tmp_path)
+        (local / "new.txt").write_text("change")
+        _git(local, "add", ".")
+        _git(local, "commit", "-m", "commit")
+        make_workspace(orient_root, [{"name": "repo-c", "path": str(local), "push": False}])
+
+        result = run("sync", env={"ORIENT_ROOT": str(orient_root)})
+        assert "↑1 (push off)" in result.output
+
+    def test_diverged_renders_manual_merge_not_plus_notation(self, orient_root, tmp_path):
+        local, remote = make_remote_pair(tmp_path)
+        add_remote_commits(remote, tmp_path, 1)
+        (local / "local.txt").write_text("diverging")
+        _git(local, "add", ".")
+        _git(local, "commit", "-m", "diverging commit")
+        _git(local, "fetch")
+        make_workspace(orient_root, [{"name": "repo-g", "path": str(local)}])
+
+        result = run("sync", env={"ORIENT_ROOT": str(orient_root)})
+        assert "diverged — manual merge required" in result.output
+        # a diverged repo must not be rendered as a clean behind-pull
+        assert "+1" not in result.output
+
     def test_all_suppressed_renders_summary_and_brief_pointer(self, orient_root, tmp_path):
         local, remote = make_remote_pair(tmp_path)
         make_workspace(orient_root, [{"name": "repo", "path": str(local)}])
