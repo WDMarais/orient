@@ -7,10 +7,39 @@ upstream for git repos; backup-current for non-git units). Runs in parallel acro
 all projects. Output is a state snapshot, not an action log: boring states suppress,
 interesting states surface.
 
-**Internal state model**: orient stores `last_synced_hash` per project (git: commit
-SHA; non-git: mtime or content hash) in `~/.orient/state.toml`. On sync:
-`pre = stored hash`, `post = hash after sync attempt`. Delta surfaced if `pre != post`;
-suppresses on next run when `pre == post`. Hash only updates on successful advance.
+**Internal state model**: `~/.orient/state.toml` stores `last_synced_hash` (git: local
+HEAD observed at the last sync, written by the sync command; non-git: mtime or content
+hash) and `last_synced_at` (timestamp) per project. Their *only* consumer is the **status
+freshness fast path** (`should_fetch`, spec-status.md): if HEAD still matches
+`last_synced_hash` and we are inside the freshness window, `status` skips the fetch.
+
+> **Naming caveat.** `last_synced_hash` holds *local HEAD at last sync*, not a
+> local↔upstream parity point. The name implies a parity/sync point; that misreading is
+> what the abandoned pre/post-hash suppression model (below) was built on. Renaming it
+> `last_local_head` would prevent the confusion. The stored value is correct for its one
+> real consumer.
+
+**Suppression is computed from current state, not from a stored-hash delta.** A git repo
+is suppressed only when it is genuinely boring: clean, `ahead == 0`, `behind == 0`, not
+diverged, no error, and nothing was pulled or pushed this run. Standing gaps
+(`↑N (push off)`, `dirty`, `diverged`, `behind — pull blocked`) fail that test and so
+surface on **every run** until the condition clears. A transient action (a `+N` pull this
+run) surfaces the run it happens and falls silent the next, because next run there is
+nothing left to do.
+
+> The original spec described a `pre = stored hash` / `post = hash after sync` delta,
+> suppressing when `pre == post`. That model was **never implemented** and is retired:
+> keyed on local HEAD it would suppress every standing gap (an idle repo always sits at
+> its own HEAD), hiding exactly the conditions a user must keep seeing.
+
+**Detection precondition (the failure this spec corrects).** Ahead/behind is only
+computable if orient can resolve an upstream to compare against. It resolves the
+configured tracking ref (`@{u}`) first and **falls back to `origin/<branch>`** when no
+tracking ref is set — a common state for branches pushed without `-u` or created locally.
+Without that fallback, a repo with a remote but no tracking ref resolves nothing, reports
+`ahead == 0 / behind == 0`, and is silently suppressed as "up-to-date" while sitting
+arbitrarily far ahead of — or diverged from — its remote. Only when `origin/<branch>`
+also does not exist is the repo genuinely upstream-less.
 
 ## First-run / missing config
 
@@ -145,6 +174,13 @@ orient sync (all repos clean + up-to-date; all non-git units untouched or backed
   → 5 projects · all up-to-date
   → → ~/.orient/morning-brief.md
   # summary line confirms sync ran; pointer to on-disk summary for next-step prompting
+
+orient sync (one repo ↑8 on main with push off; all others clean + up-to-date)
+  → orient   main · ↑8 (push off — update config to push default branch)
+  → 9 projects · all up-to-date
+  →   → ~/.orient/morning-brief.md
+  # standing gap surfaces EVERY run until pushed; never folded into "all up-to-date".
+  # summary counts only the suppressed-boring rest, so the gap stays visible.
 ```
 
 ## --push flag (per-run override)
@@ -228,3 +264,29 @@ orient sync --help
   →   orient sync re-owm --push
   →   orient sync agent-skills srs-tool
 ```
+
+## Design note — silent suppression of un-tracked branches (2026-06-20)
+
+**Symptom.** `orient sync` reported `10 projects · all up-to-date` while the orient repo
+itself was 9 ahead / 3 behind `origin/main` — diverged, not even fast-forwardable.
+
+**Cause.** orient's `main` had a remote and a live `origin/main`, but **no upstream
+tracking ref** (`@{u}` → "no upstream configured for branch 'main'"). Both `sync` and
+`status` computed ahead/behind only inside `if tracking:`, so the counts stayed 0, the
+current-state suppression test passed, and the repo was hidden. `last_synced_hash` was
+never involved — git suppression does not read it (`prior_state` is unused in
+`_sync_git`). The original spec's pre/post-hash story was a red herring; the real
+dependency is the tracking ref.
+
+**Resolution.** Resolve the upstream via `@{u}` with a fallback to `origin/<branch>`
+(shared `_upstream_ref` helper used by both `sync` and `status`). orient now surfaces as
+`diverged — manual merge required` every run until resolved. The behind-side pull was
+switched from `git pull --ff-only` (which needs a tracking ref) to a post-fetch
+`git merge --ff-only <ref>`, so a tracking-less but fast-forwardable repo still advances.
+
+**Why no test caught it.** `make_remote_pair` builds repos with `git clone`, which always
+configures tracking. The harness never produced the tracking-less state. Added a
+no-tracking fixture and detection tests on both the sync and status paths.
+
+**Deferred.** Rename `last_synced_hash` → `last_local_head` (state.toml schema + reads in
+spec-status.md / spec.md + tests). Clarifying, not behavioural; not blocking.
