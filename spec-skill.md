@@ -20,9 +20,10 @@ are authored the same way. No bespoke format.
 
 ## Two kinds
 
-- **native** — ships inside orient at `ORIENT_ROOT`-relative `skills/<name>/SKILL.md`
-  (repo path `orient/skills/<name>/SKILL.md`). Intrinsic; never registered. Found by
-  orient knowing its own location.
+- **native** — ships inside orient as package data at `orient/skills/<name>/SKILL.md`,
+  resolved relative to the installed package (`Path(__file__).parent / "skills"`), not
+  `ORIENT_ROOT` (which is user config/notes). Intrinsic; never registered; versions with
+  orient's source.
 - **external** — lives in a project's own filesystem. Registered via `workspace.toml`
   (search paths + per-skill overrides). Optionally sets `extends: <native>` to layer
   project-specific steps onto a native base; an external skill with no `extends` is

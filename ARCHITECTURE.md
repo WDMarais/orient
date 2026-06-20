@@ -15,6 +15,8 @@ orient/
 ├── preflight.py         # run_preflight, PreflightResult
 ├── session_note.py      # parse_note, run_session_note, ParsedNote, SessionSection
 ├── brief.py             # build_preflight_token, get_next_action, run_brief, BriefFrontmatter
+├── skill.py             # parse_skill, discover_skills, resolve_skill, assemble_skill, run_skill_show, Skill
+├── skills/              # native SKILL.md bodies (package data): day-starter, session-closer, dev-pipeline, ...
 └── lib/
     ├── __init__.py
     ├── note_parser.py   # fork of agent-skills/lib/note_parser.py  (~5 line changes)
@@ -28,7 +30,8 @@ tests/
 ├── test_status.py
 ├── test_sync.py
 ├── test_brief.py
-└── test_session_note.py
+├── test_session_note.py
+└── test_skill.py
 ```
 
 ## Shared types
@@ -52,6 +55,10 @@ No dedicated `types.py` module. Each type lives in the module that owns it:
 | `PreflightToken` | `orient.brief` | (internal to brief) |
 | `TopicAction` | `orient.brief` | cli |
 | `BriefFrontmatter` | `orient.brief` | cli |
+| `Skill` | `orient.skill` | cli |
+| `SkillKind` | `orient.skill` | (internal to skill) |
+| `SkillsConfig` | `orient.config` | skill, cli |
+| `SkillOverride` | `orient.config` | skill, cli |
 
 ## Implementation order (DAG)
 
@@ -65,7 +72,9 @@ No dedicated `types.py` module. Each type lives in the module that owns it:
 8. `orient.preflight` — depends on (2), (3), (4)
 9. `orient.session_note` — depends on (1), (8); parallel with (10)
 10. `orient.brief` — depends on (1), (3), (4), (5); parallel with (9)
-11. `orient.cli` — terminal; depends on all
+11. `orient.skill` — depends on (3) [config: `[skills]` section], (8) preflight, (10) brief;
+    imports their token builders for lifecycle context; leaf otherwise
+12. `orient.cli` — terminal; depends on all
 
 ## Per-module interface
 
@@ -158,11 +167,21 @@ class DefaultsConfig(BaseModel):
     activity_model: ActivityModel = ActivityModel.recency
     freshness_window: int = 60   # minutes; drives status freshness fast path
 
+class SkillOverride(BaseModel):
+    name: str
+    kind: Optional[str] = None       # "native"|"external"; inferred from location if absent
+    extends: Optional[str] = None    # native base name, for an overlay skill
+
+class SkillsConfig(BaseModel):
+    paths: list[str] = []            # search roots for external SKILL.md (tilde-expanded)
+    overrides: list[SkillOverride] = []
+
 class EffectiveConfig(BaseModel):
     orient_root: str
     config_path: str
     defaults: DefaultsConfig
     projects: list[ProjectEntry]
+    skills: SkillsConfig = SkillsConfig()   # parsed from [skills] table; empty if absent
 
 @dataclass
 class ValidationResult:
@@ -178,6 +197,7 @@ def validate_workspace(workspace_path: Path) -> ValidationResult
 
 def load_effective_config(orient_root: Path) -> EffectiveConfig
     # Parses workspace.toml; applies defaults; expands tildes in all project paths.
+    # Parses [skills] table (paths + [[skills.override]]) into SkillsConfig; tilde-expands paths.
     # Raises with first-run guidance message if workspace.toml absent.
 
 def add_project_entry(
@@ -598,6 +618,103 @@ Spec gaps:
 
 ---
 
+### orient.skill
+
+Local SKILL.md registry. Parses, discovers, resolves, and **emits** skill prompts —
+never executes. `show` prints assembled text to stdout. See [spec-skill.md](spec-skill.md).
+
+```python
+class SkillKind(str, Enum):
+    native = "native"
+    external = "external"
+
+@dataclass
+class Skill:
+    name: str
+    description: str
+    kind: SkillKind
+    body: str                       # markdown body, frontmatter stripped
+    source_path: str                # absolute path to the SKILL.md
+    extends: Optional[str] = None   # native base name, for external overlays
+
+def parse_skill(path: Path, kind: SkillKind) -> Skill
+    # Splits leading --- frontmatter from body. Frontmatter keys: name, description,
+    # kind, extends (scalar "key: value" only — same hand-rolled approach as
+    # brief.parse_brief_frontmatter; no PyYAML). kind from caller; frontmatter/override
+    # may refine extends.
+
+def _native_skills_dir() -> Path
+    # Path(__file__).parent / "skills" — package data, NOT ORIENT_ROOT.
+
+def discover_skills(config: EffectiveConfig) -> list[Skill]
+    # Native: parse every <pkg>/skills/*/SKILL.md (kind=native).
+    # External: for each config.skills.paths root, glob **/SKILL.md (kind=external);
+    #   apply matching SkillOverride by name (kind/extends override frontmatter).
+    # Native first, then external; each in discovery order.
+
+def resolve_skill(name: str, skills: list[Skill]) -> Skill
+    # Native-first. External may not shadow a native of the same name →
+    #   raises "skill '<name>' is both native (<path>) and external (<path>)".
+    # Unknown → raises "no skill named '<name>' — orient skill list".
+
+def assemble_skill(
+    skill: Skill,
+    base: Optional[Skill],
+    context_token: Optional[str],
+) -> str
+    # Pure (no I/O). Concatenates, blank-line + rule separated, in order:
+    #   1. context_token  — if a lifecycle native produced one
+    #   2. base.body      — if `skill` is an external overlay (base = its native)
+    #   3. skill.body
+    # base is None for native/standalone skills; context_token is None for non-lifecycle.
+
+# Lifecycle native → context-token provider. Uniform signature; unused args ignored.
+_LIFECYCLE_TOKENS: dict[str, Callable[[Path, Optional[str], Optional[str]], str]] = {
+    "day-starter":    ...,   # wraps brief.build_preflight_token (orient_root only)
+    "session-closer": ...,   # wraps preflight.run_preflight(close) (needs project/topic)
+    "topic-briefer":  ...,   # wraps session_note cold-brief (needs project/topic)
+    # "day-closer": pending — day close unbuilt; emits body alone for now
+}
+
+def run_skill_list(config: EffectiveConfig) -> None
+    # One line per skill: "<name>  [native | external | external→<base>]  <source_path>".
+
+def run_skill_show(
+    name: str,
+    orient_root: Path,
+    config: EffectiveConfig,
+    project: Optional[str] = None,
+    topic: Optional[str] = None,
+) -> None
+    # 1. discover_skills + resolve_skill(name). Collision/unknown → stderr, exit non-zero.
+    # 2. External overlay: resolve its `extends` base (must be native, else error).
+    # 3. Lifecycle base = self if native lifecycle, else the extends base. If in
+    #    _LIFECYCLE_TOKENS, build its context token (session-closer/topic-briefer need
+    #    project/topic — if absent, skip token and print an inline note to stderr).
+    # 4. print(assemble_skill(skill, base, context_token)). Emit-only — no API call ever.
+```
+
+Design decisions:
+- Native skills are **package data** via `Path(__file__).parent / "skills"`, not
+  `ORIENT_ROOT`; they version with orient's source. (Corrects the spec's earlier
+  "ORIENT_ROOT-relative" wording, since fixed.)
+- `skill.py` imports `brief.build_preflight_token` and `preflight.run_preflight` at
+  module top (no inline imports) — hence its DAG position after both. `_LIFECYCLE_TOKENS`
+  keeps the per-skill wiring in a single table.
+- `assemble_skill` is pure so the ordering invariant (token → base → overlay) is
+  unit-testable with no filesystem or lifecycle-command involvement.
+- ZDR: `run_skill_show` never calls the API in any mode, so it needs no special-casing.
+  The `--zdr`/`ORIENT_NO_API` gate lives in cli for the *other* (claude -p) commands.
+
+Spec gaps:
+- `day-closer` context token deferred until `day close` (spec-day-close.md) is built;
+  until then the skill emits its body alone. Not a blocker.
+- Chained overlays (an external whose `extends` base is itself external): out of scope.
+  `resolve_skill`/`run_skill_show` require the base to be native. Documented, unsupported
+  at MVP.
+
+---
+
 ### orient.cli
 
 Typer app. All user-facing error messages and rendering live here. Modules return typed
@@ -609,10 +726,16 @@ app: typer.Typer   # root app
 # Subcommands registered on app:
 # sync, status, note, brief, session-note
 # config is a Typer sub-app with: validate, show, add-project, path
+# skill is a Typer sub-app with: list, show
 
 # CLI arg shape for session-note:
 # orient session-note <mode> <project> <topic> [reason:<reason>]
 # mode: "checkpoint" | "close"
+
+# CLI arg shape for skill:
+# orient skill show <name> [project] [topic]
+#   project/topic optional; required only for lifecycle native context tokens
+#   (session-closer, topic-briefer). orient skill list takes no args.
 ```
 
 Design decisions:
@@ -627,6 +750,10 @@ Design decisions:
   by Rich.
 - `ANTHROPIC_API_KEY` checked at invocation time for brief and session-note; friendly
   error if absent.
+- `--zdr` flag / `ORIENT_NO_API=1` env: when set, cli does not construct an anthropic
+  client for brief/session-note/day-close — those degrade to emit-prompt. `orient skill
+  show` is unaffected (already emit-only); external skills are never routed to a
+  `claude -p` path in any mode.
 
 Spec gaps:
 - `orient --version` value: `"orient 0.1.0"`. Derive from `pyproject.toml` via
