@@ -75,6 +75,7 @@ orient status             # freshness + uncommitted state across workspace
 | `spec-brief.md` | day-start: SOD context + queue (Haiku) |
 | `spec-day-close.md` | day-close: EOD aggregate → marker + pre-plan (Haiku) |
 | `spec-session-note.md` | session checkpoint/close notes (preflight + Haiku sweep) |
+| `spec-skill.md` | local SKILL.md harness: native + external skills, emit-only, ZDR-safe |
 
 ## Architecture
 

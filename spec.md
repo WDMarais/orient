@@ -103,6 +103,7 @@ backdating invariant above for `--date` on the two close edges.
 | day-start | `orient day start` | [spec-brief.md](spec-brief.md) | SOD context + queue (Haiku skill) |
 | day-close | `orient day close` | [spec-day-close.md](spec-day-close.md) | EOD aggregate of today's notes → marker + pre-plan (Haiku) |
 | session | `orient session start\|checkpoint\|close` | [spec-session-note.md](spec-session-note.md) | Scaffold / checkpoint / close session notes (mechanical + preflight) |
+| skill | `orient skill list\|show` | [spec-skill.md](spec-skill.md) | Local SKILL.md harness: native + external skills, emit-only, ZDR-safe |
 
 > Surface migration: `brief` → `day start`, `session-note` → `session {checkpoint,close}`,
 > plus new `session start` (scaffolding) and `day close` (the EOD keystone that feeds
