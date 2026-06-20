@@ -20,6 +20,7 @@ from conftest import (
     make_git_repo,
     make_remote_pair,
     add_remote_commits,
+    strip_tracking,
     head_sha,
     _git,
     _configure_git_identity,
@@ -216,6 +217,48 @@ class TestGitRepoDelta:
         assert result.diverged is True
         assert result.ahead >= 1
         assert result.behind >= 1
+
+    def test_ahead_detected_without_tracking_ref(self, tmp_path):
+        # Remote exists with a live origin/main, but the branch has no @{u}.
+        # Detection must fall back to origin/<branch>, not silently suppress.
+        local, remote = make_remote_pair(tmp_path)
+        (local / "new.txt").write_text("change")
+        _git(local, "add", ".")
+        _git(local, "commit", "-m", "local commit")
+        strip_tracking(local)
+
+        result = sync_project(ProjectConfig("repo-nt", str(local)))
+        assert result.ahead == 1
+        assert result.suppressed is False
+
+    def test_diverged_without_tracking_ref_not_suppressed(self, tmp_path):
+        # orient's actual failure state: remote + origin/main present, no tracking
+        # ref, and history diverged. Must surface, never report up-to-date.
+        local, remote = make_remote_pair(tmp_path)
+        add_remote_commits(remote, tmp_path, 1)
+        (local / "local.txt").write_text("diverging")
+        _git(local, "add", ".")
+        _git(local, "commit", "-m", "diverging commit")
+        _git(local, "fetch")
+        strip_tracking(local)
+
+        result = sync_project(ProjectConfig("repo-ntd", str(local)))
+        assert result.diverged is True
+        assert result.suppressed is False
+
+    def test_behind_without_tracking_ref_advances(self, tmp_path):
+        # Behind a live origin/main with no tracking ref: ff-merge must still advance.
+        local, remote = make_remote_pair(tmp_path)
+        add_remote_commits(remote, tmp_path, 2)
+        strip_tracking(local)
+
+        result = sync_project(ProjectConfig("repo-ntb", str(local)))
+        assert result.behind == 2
+        assert result.suppressed is False
+        # advanced to origin/main: nothing left behind on a second sync
+        second = sync_project(ProjectConfig("repo-ntb", str(local)))
+        assert second.behind == 0
+        assert second.suppressed is True
 
 
 # ---------------------------------------------------------------------------

@@ -19,6 +19,7 @@ from conftest import (
     make_git_repo,
     make_remote_pair,
     add_remote_commits,
+    strip_tracking,
     head_sha,
     _git,
 )
@@ -183,6 +184,19 @@ class TestStatusResults:
         _git(local, "commit", "-m", "local commit")
 
         result = compute_status(ProjectConfig("repo-c", str(local), push=False))  # TODO: wire up
+        assert result.ahead == 1
+        assert result.suppressed is False
+
+    def test_ahead_detected_without_tracking_ref(self, tmp_path):
+        # Remote + live origin/main but no @{u}: status must still detect the gap
+        # via the origin/<branch> fallback rather than report it suppressed.
+        local, remote = make_remote_pair(tmp_path)
+        (local / "new.txt").write_text("local change")
+        _git(local, "add", ".")
+        _git(local, "commit", "-m", "local commit")
+        strip_tracking(local)
+
+        result = compute_status(ProjectConfig("repo-nt", str(local)))
         assert result.ahead == 1
         assert result.suppressed is False
 

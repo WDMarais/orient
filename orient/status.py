@@ -68,6 +68,23 @@ def _git_check(repo: Path, *args: str, timeout: Optional[float] = None) -> tuple
     return result.stdout.strip(), result.stderr.strip(), result.returncode
 
 
+def _upstream_ref(repo: Path, branch: str) -> str:
+    """Resolve the ref to compare HEAD against for ahead/behind.
+
+    Prefer the configured tracking ref (@{u}). When no tracking ref is set — common
+    for branches pushed without -u, or created locally — fall back to origin/<branch>
+    if it exists. Returns "" only when there is genuinely no remote-side counterpart,
+    i.e. the branch is truly upstream-less. Without this fallback a repo with a remote
+    but no tracking ref reports ahead==0/behind==0 and is silently suppressed.
+    """
+    tracking = _git(repo, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}")
+    if tracking:
+        return tracking
+    candidate = f"origin/{branch}"
+    _, _, rc = _git_check(repo, "rev-parse", "--verify", "--quiet", candidate)
+    return candidate if rc == 0 else ""
+
+
 def _default_branch(repo: Path) -> str:
     """Best-effort detection of default branch (main or master)."""
     out = _git(repo, "symbolic-ref", "refs/remotes/origin/HEAD")
@@ -169,9 +186,10 @@ def _git_status(
     result.dirty = bool(dirty_lines)
     result.dirty_count = len(dirty_lines)
 
-    # Ahead/behind vs tracking branch
+    # Ahead/behind vs tracking branch (falls back to origin/<branch> when no
+    # tracking ref is configured — see _upstream_ref)
     if has_remote:
-        tracking = _git(repo, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}")
+        tracking = _upstream_ref(repo, result.branch)
         if tracking:
             rev_list_out = _git(repo, "rev-list", "--left-right", "--count", f"HEAD...{tracking}")
             if rev_list_out:

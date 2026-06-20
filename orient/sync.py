@@ -11,7 +11,7 @@ from typing import Optional
 from orient.config import ProjectEntry
 from orient.note import append_note
 from orient.state import ProjectState
-from orient.status import _git, _git_check, _default_branch
+from orient.status import _git, _git_check, _default_branch, _upstream_ref
 
 # Fail fast on unreachable remotes instead of inheriting git's multi-minute default.
 # A hard subprocess timeout is the reliable, transport-agnostic guard (git's
@@ -145,8 +145,9 @@ def _sync_git(
         result.error = "remote unreachable"
         return result
 
-    # Detect ahead/behind vs tracking branch
-    tracking = _git(repo, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}")
+    # Detect ahead/behind vs upstream (falls back to origin/<branch> when no
+    # tracking ref is configured — see _upstream_ref)
+    tracking = _upstream_ref(repo, result.branch)
     original_behind = 0
     if tracking:
         rev_list_out = _git(repo, "rev-list", "--left-right", "--count", f"HEAD...{tracking}")
@@ -160,11 +161,14 @@ def _sync_git(
         if result.ahead > 0 and original_behind > 0:
             result.diverged = True
 
-    # Pull if behind and not dirty and not diverged
+    # Advance if behind and not dirty and not diverged. We already fetched above,
+    # so fast-forward via merge against the resolved ref rather than `git pull` —
+    # pull needs a configured tracking ref, merge does not, so this also advances a
+    # tracking-less but fast-forwardable repo.
     pulled = False
-    if original_behind > 0 and not result.dirty and not result.diverged:
-        pull_out, pull_err, pull_rc = _git_check(repo, "pull", "--ff-only", "--quiet")
-        if pull_rc == 0:
+    if original_behind > 0 and not result.dirty and not result.diverged and tracking:
+        merge_out, merge_err, merge_rc = _git_check(repo, "merge", "--ff-only", "--quiet", tracking)
+        if merge_rc == 0:
             pulled = True
             # result.behind stays as original count (transient delta indicator)
 

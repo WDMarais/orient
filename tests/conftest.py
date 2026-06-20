@@ -122,6 +122,17 @@ def make_remote_pair(tmp_path: Path, name: str = "repo") -> tuple[Path, Path]:
     return local, remote
 
 
+def strip_tracking(local: Path) -> None:
+    """Remove the branch's upstream tracking ref while leaving origin/<branch> intact.
+
+    Reproduces a repo with a remote and a live remote-side branch but no configured
+    tracking ref (@{u} fails) — the state `git clone` never leaves but real repos
+    reach via push-without-`-u`, manual branch creation, or config loss.
+    """
+    branch = _git(local, "rev-parse", "--abbrev-ref", "HEAD")
+    _git(local, "branch", "--unset-upstream", branch)
+
+
 def add_remote_commits(remote: Path, tmp_path: Path, n: int, name: str = "pusher") -> None:
     """Add `n` commits to `remote` via a temporary clone (simulates upstream advance)."""
     pusher = tmp_path / name
