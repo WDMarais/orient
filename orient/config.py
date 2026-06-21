@@ -39,11 +39,21 @@ class DefaultsConfig(BaseModel):
     freshness_window: int = 60
 
 
+class LLMConfig(BaseModel):
+    """[llm] table: which provider backs orient's optional prose steps. `provider`
+    is auto | anthropic | command | none. See orient.llm.get_llm_client."""
+    provider: str = "auto"
+    model: str = "claude-haiku-4-5-20251001"
+    command: list[str] = ["claude", "-p"]
+    timeout: int = 120
+
+
 class EffectiveConfig(BaseModel):
     orient_root: str
     config_path: str
     defaults: DefaultsConfig
     projects: list[ProjectEntry]
+    llm: LLMConfig = LLMConfig()
 
 
 @dataclass
@@ -141,6 +151,14 @@ def load_effective_config(orient_root: Path) -> EffectiveConfig:
         freshness_window=raw_defaults.get("freshness_window", 60),
     )
 
+    raw_llm = data.get("llm", {})
+    llm = LLMConfig(
+        provider=raw_llm.get("provider", "auto"),
+        model=raw_llm.get("model", "claude-haiku-4-5-20251001"),
+        command=raw_llm.get("command", ["claude", "-p"]),
+        timeout=raw_llm.get("timeout", 120),
+    )
+
     workspace = data.get("workspace", {})
     base = Path(workspace.get("base", "~")).expanduser()
 
@@ -164,6 +182,7 @@ def load_effective_config(orient_root: Path) -> EffectiveConfig:
         config_path=str(ws_path),
         defaults=defaults,
         projects=projects,
+        llm=llm,
     )
 
 

@@ -1,16 +1,14 @@
 """build_preflight_token, get_next_action, parse_brief_frontmatter, run_brief."""
 from __future__ import annotations
 
-import os
 import sys
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from pathlib import Path
 from typing import Optional
 
-import anthropic
-
 from orient.config import load_effective_config
+from orient.llm import LLMClient
 from orient.lib.note_parser import find_latest_note
 from orient.note import parse_notes_md
 from orient.session_note import parse_note
@@ -319,10 +317,10 @@ def parse_brief_frontmatter(brief_path: Path) -> BriefFrontmatter:
 
 def run_brief(
     orient_root: Path,
-    client: Optional[anthropic.Anthropic] = None,
+    client: Optional[LLMClient] = None,
 ) -> None:
-    if client is None and os.getenv("ANTHROPIC_API_KEY"):
-        client = anthropic.Anthropic()
+    # Client is constructed and injected by the caller (cli, via llm.get_llm_client,
+    # which honors --zdr / ORIENT_NO_API). None here means deterministic fallback.
     today = date.today().isoformat()
     brief_path = orient_root / "morning-brief.md"
 
@@ -382,12 +380,7 @@ def run_brief(
             f"Active topics:\n{topic_lines}\n\n"
             "2-4 concise sentences summarising priorities. No YAML or frontmatter."
         )
-        response = client.messages.create(
-            model="claude-haiku-4-5-20251001",
-            max_tokens=512,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        prose = response.content[0].text.strip()
+        prose = client.complete(prompt, max_tokens=512)
     elif not token.topics:
         prose = (
             "No active topics yet. Start one with `orient session start <project> <topic>`,\n"

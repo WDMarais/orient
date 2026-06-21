@@ -15,6 +15,7 @@ orient/
 ├── preflight.py         # run_preflight, PreflightResult
 ├── session_note.py      # parse_note, run_session_note, ParsedNote, SessionSection
 ├── brief.py             # build_preflight_token, get_next_action, run_brief, BriefFrontmatter
+├── llm.py               # LLMClient Protocol, AnthropicClient, CommandClient, get_llm_client
 ├── skill.py             # parse_skill, discover_skills, resolve_skill, assemble_skill, run_skill_show, Skill
 ├── skills/              # native SKILL.md bodies (package data): day-starter, session-closer, dev-pipeline, ...
 └── lib/
@@ -31,6 +32,7 @@ tests/
 ├── test_sync.py
 ├── test_brief.py
 ├── test_session_note.py
+├── test_llm.py
 └── test_skill.py
 ```
 
@@ -55,6 +57,8 @@ No dedicated `types.py` module. Each type lives in the module that owns it:
 | `PreflightToken` | `orient.brief` | (internal to brief) |
 | `TopicAction` | `orient.brief` | cli |
 | `BriefFrontmatter` | `orient.brief` | cli |
+| `LLMClient` | `orient.llm` | brief, cli (Protocol; type of the injected client) |
+| `LLMConfig` | `orient.config` | llm, cli |
 | `Skill` | `orient.skill` | cli |
 | `SkillKind` | `orient.skill` | (internal to skill) |
 | `SkillsConfig` | `orient.config` | skill, cli |
@@ -70,11 +74,12 @@ No dedicated `types.py` module. Each type lives in the module that owns it:
 6. `orient.status` — depends on (3), (4); parallel with (7)
 7. `orient.sync` — depends on (3), (4), (5); parallel with (6)
 8. `orient.preflight` — depends on (2), (3), (4)
-9. `orient.session_note` — depends on (1), (8); parallel with (10)
-10. `orient.brief` — depends on (1), (3), (4), (5); parallel with (9)
-11. `orient.skill` — depends on (3) [config: `[skills]` section], (8) preflight, (10) brief;
+9. `orient.llm` — depends on (3) [config: `LLMConfig`]; leaf otherwise; unblocks brief
+10. `orient.session_note` — depends on (1), (8); parallel with (11)
+11. `orient.brief` — depends on (1), (3), (4), (5), (9); parallel with (10)
+12. `orient.skill` — depends on (3) [config: `[skills]` section], (8) preflight, (11) brief;
     imports their token builders for lifecycle context; leaf otherwise
-12. `orient.cli` — terminal; depends on all
+13. `orient.cli` — terminal; depends on all
 
 ## Per-module interface
 
@@ -448,6 +453,48 @@ Spec gaps: none blocking this module.
 
 ---
 
+### orient.llm
+
+```python
+@runtime_checkable
+class LLMClient(Protocol):
+    def complete(self, prompt: str, *, max_tokens: int = 512,
+                 model: Optional[str] = None) -> str: ...
+
+class AnthropicClient:        # wraps anthropic.Anthropic().messages.create
+    def __init__(self, model: str = "claude-haiku-4-5-20251001") -> None
+    def complete(self, prompt, *, max_tokens=512, model=None) -> str
+
+class CommandClient:          # shells argv (e.g. ["claude","-p"]); prompt→stdin, stdout→return
+    def __init__(self, argv: list[str], timeout: int = 120) -> None  # empty argv → ValueError
+    def complete(self, prompt, *, max_tokens=512, model=None) -> str  # rc!=0 → RuntimeError
+
+def get_llm_client(config: LLMConfig, *, zdr: bool = False) -> Optional[LLMClient]
+    # None (no client constructed, API unreachable) when:
+    #   - zdr is True, or ORIENT_NO_API is set;
+    #   - provider == "none";
+    #   - provider resolves to anthropic but ANTHROPIC_API_KEY is absent.
+    # provider "auto" (default): AnthropicClient if key else None (preserves legacy behavior).
+    # provider "command": CommandClient(config.command, config.timeout).
+```
+
+Design decisions:
+- `Protocol` + concrete adapters = the Strategy pattern. A new provider (Gemini,
+  Codex, …) is one adapter class + one branch in `get_llm_client`; no caller changes.
+  Not pre-built — YAGNI until a second provider is actually needed.
+- The factory is the only place that reads env/ZDR state, so callers stay pure: they
+  receive a client or None and branch on that alone. This is the ZDR seam made literal
+  — in `--zdr`/`ORIENT_NO_API` mode no client is even constructed, so the process is
+  provably API-silent (cf. spec-skill.md ZDR invariant).
+- `LLMConfig` lives in `orient.config` (the `[llm]` table); `orient.llm` imports it,
+  keeping config the single Pydantic schema owner.
+
+Spec gaps: none. (Parked, separate design pass: promoting the provider-agnostic
+artifact boundary to a first-class emitted datastructure for external orchestration —
+see project memory.)
+
+---
+
 ### orient.session_note
 
 ```python
@@ -483,19 +530,21 @@ def run_session_note(
     mode: str,                              # "checkpoint" | "close"
     orient_root: Path,
     reason: str = "natural-end",
-    client: Optional[anthropic.Anthropic] = None,  # injectable; defaults to anthropic.Anthropic()
 ) -> None
     # 1. Calls run_preflight() to get routing token.
     # 2. On ambiguous/error: surfaces message to stdout, exits non-zero; does not proceed.
-    # 3. Builds Haiku prompt with preflight token + rollforward content.
-    # 4. Calls Haiku via client; writes note to disk.
-    # 5. Close mode only: appends ## Session block; sweeps for NOTES.md items.
+    # 3. Scaffolds a skeleton note (rolled-forward Pending/Deferred) and prints the
+    #    path + context for the in-conversation LLM to fill. Mechanical — NO Haiku.
+    # 4. Close mode only: appends ## Session block skeleton; the NOTES.md sweep is the
+    #    in-conversation session's job (it has the context), not a here-and-now API call.
     # Note: orient_root / "notes" / project / topic / YYYY-MM-DD.md is the note path.
 ```
 
 Design decisions:
-- `run_session_note` accepts an injectable `client` for test isolation. Tests pass a
-  `StubHaikuClient` that returns a deterministic note body (enabling sweep logic tests).
+- `run_session_note` is fully mechanical and client-free: session edges scaffold and
+  emit context for the live (already-running, ZDR-compliant) session to act on, rather
+  than making their own API call. Only the day edges (`run_brief`, day-close) take an
+  optional `LLMClient` for prose. This keeps the session tier provably API-silent.
 - `## Session` format (updated from spec to include phase fields):
   ```
   - reason: natural-end
@@ -590,15 +639,16 @@ def parse_brief_frontmatter(brief_path: Path) -> BriefFrontmatter
 
 def run_brief(
     orient_root: Path,
-    client: Optional[anthropic.Anthropic] = None,  # injectable; defaults to anthropic.Anthropic()
+    client: Optional[LLMClient] = None,  # injected by cli via llm.get_llm_client; None → fallback
 ) -> None
     # 1. Archive check: if morning-brief.md exists and its date: frontmatter is not today,
     #    move it to morning-briefs/<date-from-frontmatter>.md (create morning-briefs/ if absent).
     #    Frontmatter date unreadable: fall back to file mtime, warn inline, proceed.
     #    Same-day re-run: skip archive, overwrite in-place.
     # 2. Calls build_preflight_token().
-    # 3. Builds Haiku prompt with token.
-    # 4. Calls Haiku via client; writes morning-brief.md.
+    # 3. Builds prose prompt with token.
+    # 4. If client is not None: client.complete(prompt) for prose; else deterministic
+    #    fallback prose (no API). Writes morning-brief.md either way.
     # 5. Prints prose section to stdout (content after closing ---).
     # 6. Updates state: last_brief date in state.toml after successful write.
 ```
@@ -607,7 +657,9 @@ Design decisions:
 - Priority ordering in `next_actions`: phase-transition topics first (priority 1+),
   in-progress topics second, deferred-heavy third. `get_next_action` assigns priority
   based on phase category; `run_brief` sorts by priority before writing frontmatter.
-- `run_brief` accepts injectable `client` for test isolation (same pattern as session_note).
+- `run_brief` accepts an injectable `LLMClient` for test isolation and provider
+  agnosticism; cli constructs it via `llm.get_llm_client(config.llm, zdr=...)`. None
+  (the test default, and the `--zdr`/no-key case) takes the deterministic fallback.
 - `recommended_next_phase` is surfaced to Haiku in the preflight token; `get_next_action`
   uses it to override the mechanical lookup table. Haiku does not reason about it — the
   override is communicated verbatim.
@@ -748,12 +800,14 @@ Design decisions:
   `"N projects · all up-to-date"` + pointer to `morning-brief.md`.
 - Rich table/panel rendering: one row per unsuppressed project. Column alignment handled
   by Rich.
-- `ANTHROPIC_API_KEY` checked at invocation time for brief and session-note; friendly
-  error if absent.
-- `--zdr` flag / `ORIENT_NO_API=1` env: when set, cli does not construct an anthropic
-  client for brief/session-note/day-close — those degrade to emit-prompt. `orient skill
-  show` is unaffected (already emit-only); external skills are never routed to a
-  `claude -p` path in any mode.
+- LLM client construction is delegated to `llm.get_llm_client(config.llm, zdr=...)`,
+  not done inline. `day start` passes its `--zdr` flag through; the factory also honors
+  `ORIENT_NO_API`. Missing key under provider "auto"/"anthropic" yields None (silent
+  deterministic fallback), not an error — running brief without a key is valid.
+- `--zdr` flag / `ORIENT_NO_API=1` env: when set, `get_llm_client` returns None so no
+  client is constructed for brief/day-close — those degrade to emit-prompt. Session
+  edges are already client-free. `orient skill show` is unaffected (already emit-only);
+  external skills are never routed to a `claude -p` path in any mode.
 
 Spec gaps:
 - `orient --version` value: `"orient 0.1.0"`. Derive from `pyproject.toml` via

@@ -18,6 +18,7 @@ from orient.config import (
     load_effective_config,
     validate_workspace,
 )
+from orient.llm import get_llm_client
 from orient.note import append_note
 from orient.session_note import run_session_note, run_session_start
 from orient.state import (
@@ -223,7 +224,16 @@ def topic_list() -> None:
 # ---------------------------------------------------------------------------
 
 @day_app.command("start")
-def day_start() -> None:
+def day_start(
+    zdr: Annotated[
+        bool,
+        typer.Option(
+            "--zdr",
+            help="Zero-data-retention: make no API calls; brief prose degrades to "
+            "deterministic fallback. Also triggered by ORIENT_NO_API=1.",
+        ),
+    ] = False,
+) -> None:
     orient_root = _orient_root()
     _require_config(orient_root)
 
@@ -232,8 +242,11 @@ def day_start() -> None:
         typer.echo(f"cannot write to note root: {note_root}")
         raise typer.Exit(code=1)
 
+    config = load_effective_config(orient_root)
+    client = get_llm_client(config.llm, zdr=zdr)
+
     try:
-        run_brief(orient_root)
+        run_brief(orient_root, client=client)
     except SystemExit as exc:
         raise typer.Exit(code=int(exc.code) if exc.code else 1)
     except OSError as exc:

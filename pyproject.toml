@@ -31,4 +31,5 @@ markers = [
     "config: orient config subsystem",
     "brief: orient brief subsystem",
     "session_note: orient session-note subsystem",
+    "llm: orient llm client subsystem",
 ]
