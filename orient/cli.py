@@ -21,6 +21,7 @@ from orient.config import (
 from orient.llm import get_llm_client
 from orient.note import append_note
 from orient.session_note import run_session_note, run_session_start
+from orient.skill import run_skill_list, run_skill_show
 from orient.state import (
     ProjectState,
     drop_active_topic,
@@ -42,6 +43,8 @@ session_app = typer.Typer(name="session", no_args_is_help=True, add_completion=F
 app.add_typer(session_app, name="session")
 topic_app = typer.Typer(name="topic", no_args_is_help=True, add_completion=False)
 app.add_typer(topic_app, name="topic")
+skill_app = typer.Typer(name="skill", no_args_is_help=True, add_completion=False)
+app.add_typer(skill_app, name="skill")
 
 
 def _orient_root() -> Path:
@@ -217,6 +220,31 @@ def topic_list() -> None:
         return
     for t in topics:
         typer.echo(t)
+
+
+# ---------------------------------------------------------------------------
+# skill — local SKILL.md registry (emit-only)
+# ---------------------------------------------------------------------------
+
+@skill_app.command("list")
+def skill_list() -> None:
+    orient_root = _orient_root()
+    config = _load_config(orient_root)
+    run_skill_list(config)
+
+
+@skill_app.command("show")
+def skill_show(
+    name: str,
+    project: Annotated[Optional[str], typer.Argument()] = None,
+    topic: Annotated[Optional[str], typer.Argument()] = None,
+) -> None:
+    orient_root = _orient_root()
+    config = _load_config(orient_root)
+    try:
+        run_skill_show(name, orient_root, config, project=project, topic=topic)
+    except SystemExit as exc:
+        raise typer.Exit(code=int(exc.code) if exc.code else 1)
 
 
 # ---------------------------------------------------------------------------
