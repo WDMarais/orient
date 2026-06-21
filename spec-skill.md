@@ -10,8 +10,10 @@ untrusted (a zero-data-retention workplace), orient falls back to its own harnes
 which is provably local: in emit mode it makes zero Anthropic calls and only prints
 text.
 
-This inverts the original dependency. agent-skills' generalizable skills move *into*
-orient as natives; project-specific skills stay on disk and register against orient.
+orient owns as **natives** only the judgment halves of its own lifecycle commands.
+Every other skill — whether broadly reusable or project-specific — stays on disk in its
+own repo and registers against orient as **external**. The native/external line is
+"orient's own vs guest", not "generalizable vs project-specific".
 
 **Skill = SKILL.md verbatim.** A skill is a file with YAML frontmatter (`name`,
 `description`, optional `kind`/`extends`) and a markdown body. The format is identical
@@ -33,21 +35,19 @@ are authored the same way. No bespoke format.
 
 ## Native set
 
-Lifted from agent-skills by the genericization audit. Two families:
+The natives are exactly the **judgment halves of orient's own lifecycle commands** —
+nothing else ships as package data. Each is the same skill viewed from a project rather
+than newly invented:
 
-**Dev-pipeline** (no project coupling — owm references in those files are illustrative
-examples only): `case-interviewer`, `harness-writer`, `architecture-proposer`,
-`implementation-writer`.
+| native skill | paired command |
+|---|---|
+| `day-starter` | `orient day start` |
+| `day-closer` | `orient day close` |
+| `session-closer` | `orient session close` |
+| `topic-briefer` | `orient session start` |
 
-**Lifecycle** — the judgment half of orient's existing lifecycle commands, recognized
-as the same skill viewed from a project rather than newly extracted:
-
-| native skill | paired command | genericized from |
-|---|---|---|
-| `day-starter` | `orient day start` | owm hub-starter |
-| `day-closer` | `orient day close` | owm hub-closer |
-| `session-closer` | `orient session close` | owm session-closer |
-| `topic-briefer` | `orient session start` | owm instance-briefer |
+A skill with no paired orient command is not a native; it registers as external. Only
+intrinsic-to-orient is native — reusability is not the test.
 
 ## Command ↔ skill pairing
 
@@ -62,8 +62,8 @@ consumes lifecycle command tokens; it is not bolted alongside them. This is the
 lookup-vs-judgment layer made literal: Python does the lookup, the emitted skill
 directs the judgment.
 
-Dev-pipeline and standalone external skills have no paired command; they emit body
-plus any explicitly requested context only.
+Standalone external skills have no paired command; they emit body plus any explicitly
+requested context only.
 
 ## Commands
 
@@ -99,14 +99,14 @@ per-skill overrides declare `kind`/`extends` or pin flags that can't be inferred
 
 ```toml
 [skills]
-paths = ["~/work/skills", "~/coding-projects/agent-skills/owm"]
+paths = ["~/work/skills", "~/projects/my-skills"]
 
 [[skills.override]]
-name = "owm-session-close"
+name = "my-session-close"
 extends = "session-closer"        # overlay onto native base
 
 [[skills.override]]
-name = "blind-reviewer"
+name = "pr-reviewer"
 kind = "external"                 # standalone; no generic core
 ```
 
@@ -123,10 +123,10 @@ Two independent guarantees:
   already emit-only. The work venue is provably API-silent.
 - **External skills are always emit-only**, in any mode. They are never piped to an
   autonomous `claude -p` path — orient prints them for the interactive (ZDR-compliant)
-  session to follow. This covers the PR-review pipeline (`pr-fetcher`,
-  `blind-reviewer`, `context-reviewer`): registered as standalone external skills so
-  orient can emit them under ZDR at work — exactly the case where the host Skills
-  feature can't be trusted and the need is highest.
+  session to follow. This covers, for example, a project's PR-review pipeline
+  registered as standalone external skills, so orient can emit them under ZDR at work —
+  exactly the case where the host Skills feature can't be trusted and the need is
+  highest.
 
 native lifecycle skills retain the option of their paired command's `claude -p` step
 outside ZDR mode (e.g. day-start prose), but the judgment skill body itself is always
@@ -137,6 +137,6 @@ emit-only.
 - Executing judgment skills autonomously. orient emits; the session acts.
 - An MCP-tool registry. The same native/external + emit pattern is intended to extend
   to MCP-shaped tools later, but tools are not specced here.
-- Migrating the owm overlays' content. This spec defines the harness and the native
-  set; the genericized native bodies and the thin owm overlays are authored against
-  it, not enumerated here.
+- Migrating external overlays' content. This spec defines the harness and the native
+  set; the native bodies and any thin external overlays are authored against it, not
+  enumerated here.
