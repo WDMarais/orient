@@ -448,8 +448,23 @@ class TestRollforwardInvariant:
 
 @pytest.mark.session_note
 class TestNotesSweep:
-    def test_close_appends_flagged_items_to_notes_md(self):
-        assert False, "spec gap - NOTES.md sweep content is determined by Haiku reading session context; no mechanism to inject known-flagged items without mocking Haiku or a real session fixture"
+    def test_close_emits_concrete_notes_md_sweep_directive(self, orient_root):
+        # The sweep is judgment work — recognizing items flagged for NOTES.md in the
+        # live conversation. The mechanical `orient session close` has no view of the
+        # conversation, so the sweep is directed by the emitted session-closer skill.
+        # orient resolves the target mechanically (date, project tag, vault path) and
+        # bakes it into the emitted prompt; the live session does the recognizing.
+        make_workspace(orient_root, [{"name": "orient", "path": "/tmp/orient"}])
+        r = run("skill", "show", "session-closer", "orient", "cli",
+                env={"ORIENT_ROOT": str(orient_root)})
+        assert r.exit_code == 0
+        out = r.output
+        # mechanically-resolved, concrete sweep target — project-local NOTES.md
+        assert str(orient_root / "notes" / "orient" / "NOTES.md") in out
+        assert "[orient]" in out          # project tag baked in
+        assert _today() in out            # date baked in
+        # the emitted skill directs the live session to perform the sweep
+        assert "NOTES.md sweep" in out
 
     def test_close_no_flagged_items_notes_md_unchanged(self, orient_root):
         make_workspace(orient_root, [{"name": "orient", "path": "/tmp/orient"}])

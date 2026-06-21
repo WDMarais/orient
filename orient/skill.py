@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import sys
 from dataclasses import dataclass
+from datetime import date
 from enum import Enum
 from pathlib import Path
 from typing import Callable, Optional
@@ -184,7 +185,18 @@ def _day_starter_token(orient_root: Path, project: Optional[str], topic: Optiona
 
 def _session_closer_token(orient_root: Path, project: Optional[str], topic: Optional[str]) -> str:
     assert project is not None and topic is not None  # gated by _NEEDS_PROJECT_TOPIC
-    return _render_preflight_result(run_preflight(project, topic, "close", orient_root))
+    today = date.today().isoformat()
+    notes_md = orient_root / "notes" / project / "NOTES.md"
+    lines = [
+        _render_preflight_result(run_preflight(project, topic, "close", orient_root)),
+        "",
+        "## NOTES.md sweep target (mechanically resolved)",
+        f"date: {today}",
+        f"project tag: [{project}]",
+        f"file: {notes_md}",
+        f"append flagged items as: {today} HH:MM [{project}] <text>",
+    ]
+    return "\n".join(lines)
 
 
 def _topic_briefer_token(orient_root: Path, project: Optional[str], topic: Optional[str]) -> str:
