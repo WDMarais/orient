@@ -188,25 +188,31 @@ _ALARM_REASONS = {
 }
 
 
+def build_cold_brief(project: str, topic: str, prev: Optional[ParsedNote]) -> str:
+    """Render where a topic left off: prev Goal/Pending/Deferred + any alarm reason.
+
+    Returned as a string (no leading newline) so it can be embedded — e.g. as the
+    topic-briefer skill's context token (orient.skill) — as well as printed."""
+    if prev is None:
+        return f"fresh start - no prior notes for {project}/{topic}"
+    lines = [f"--- resuming {project}/{topic} (last note {prev.date}) ---"]
+    if prev.goal:
+        lines.append(f"Goal: {prev.goal}")
+    if prev.pending:
+        lines.append(f"Pending ({len(prev.pending)}):")
+        lines.extend(f"- {item}" for item in prev.pending)
+    if prev.deferred:
+        lines.append(f"Deferred ({len(prev.deferred)}):")
+        lines.extend(f"- {item}" for item in prev.deferred)
+    if prev.session and prev.session.reason in _ALARM_REASONS:
+        lines.append(f"[!] last session: {prev.session.reason} - {_ALARM_REASONS[prev.session.reason]}")
+    lines.append("---")
+    return "\n".join(lines)
+
+
 def _print_cold_brief(project: str, topic: str, prev: Optional[ParsedNote]) -> None:
     """Surface where a topic left off: prev Goal/Pending/Deferred + any alarm reason."""
-    if prev is None:
-        print(f"\nfresh start - no prior notes for {project}/{topic}")
-        return
-    print(f"\n--- resuming {project}/{topic} (last note {prev.date}) ---")
-    if prev.goal:
-        print(f"Goal: {prev.goal}")
-    if prev.pending:
-        print(f"Pending ({len(prev.pending)}):")
-        for item in prev.pending:
-            print(f"- {item}")
-    if prev.deferred:
-        print(f"Deferred ({len(prev.deferred)}):")
-        for item in prev.deferred:
-            print(f"- {item}")
-    if prev.session and prev.session.reason in _ALARM_REASONS:
-        print(f"[!] last session: {prev.session.reason} - {_ALARM_REASONS[prev.session.reason]}")
-    print("---")
+    print("\n" + build_cold_brief(project, topic, prev))
 
 
 def run_session_start(project: str, topic: str, orient_root: Path) -> None:

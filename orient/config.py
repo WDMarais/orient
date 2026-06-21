@@ -48,12 +48,28 @@ class LLMConfig(BaseModel):
     timeout: int = 120
 
 
+class SkillOverride(BaseModel):
+    """A [[skills.override]] entry: pins kind/extends that frontmatter can't carry or
+    that should win over it. External skills only; natives need no entry."""
+    name: str
+    kind: Optional[str] = None
+    extends: Optional[str] = None
+
+
+class SkillsConfig(BaseModel):
+    """[skills] table: external-skill search paths + per-skill overrides. Natives are
+    package data and are never configured here. See orient.skill.discover_skills."""
+    paths: list[str] = []
+    override: list[SkillOverride] = []
+
+
 class EffectiveConfig(BaseModel):
     orient_root: str
     config_path: str
     defaults: DefaultsConfig
     projects: list[ProjectEntry]
     llm: LLMConfig = LLMConfig()
+    skills: SkillsConfig = SkillsConfig()
 
 
 @dataclass
@@ -159,6 +175,12 @@ def load_effective_config(orient_root: Path) -> EffectiveConfig:
         timeout=raw_llm.get("timeout", 120),
     )
 
+    raw_skills = data.get("skills", {})
+    skills = SkillsConfig(
+        paths=raw_skills.get("paths", []),
+        override=[SkillOverride(**o) for o in raw_skills.get("override", [])],
+    )
+
     workspace = data.get("workspace", {})
     base = Path(workspace.get("base", "~")).expanduser()
 
@@ -183,6 +205,7 @@ def load_effective_config(orient_root: Path) -> EffectiveConfig:
         defaults=defaults,
         projects=projects,
         llm=llm,
+        skills=skills,
     )
 
 
