@@ -13,6 +13,7 @@ from orient.lib.note_parser import (
     parse_kv_bullets,
     find_latest_note,
 )
+from orient.paths import topic_dir
 from orient.preflight import run_preflight
 from orient.state import mark_active_topic
 
@@ -140,9 +141,8 @@ def run_session_note(
         sys.exit(1)
 
     today = date.today().isoformat()
-    note_root = orient_root / "notes"
     note_path = Path(preflight.note_path) if preflight.note_path else (
-        note_root / project / topic / f"{today}.md"
+        topic_dir(orient_root, project, topic) / f"{today}.md"
     )
     note_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -228,9 +228,8 @@ def run_session_start(project: str, topic: str, orient_root: Path) -> None:
         sys.exit(1)
 
     today = date.today().isoformat()
-    note_root = orient_root / "notes"
     note_path = Path(preflight.note_path) if preflight.note_path else (
-        note_root / project / topic / f"{today}.md"
+        topic_dir(orient_root, project, topic) / f"{today}.md"
     )
     note_path.parent.mkdir(parents=True, exist_ok=True)
 
