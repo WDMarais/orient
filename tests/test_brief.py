@@ -367,6 +367,58 @@ class TestErrorCases:
         assert result.exit_code != 0
         assert "orient is not configured yet" in result.output
 
+
+# ---------------------------------------------------------------------------
+# Deterministic fallback - topics sharing a command shape are grouped
+# ---------------------------------------------------------------------------
+
+@pytest.mark.brief
+class TestFallbackGrouping:
+    def test_same_shape_topics_grouped_under_one_header(self, orient_root):
+        # Two pinned projects, no notes → both take the session-start shape.
+        make_workspace(orient_root, [
+            {"name": "re-owm", "path": "/tmp/re-owm", "pinned": True},
+            {"name": "orient", "path": "/tmp/orient", "pinned": True},
+        ])
+        result = run("day", "start", env={"ORIENT_ROOT": str(orient_root)})
+        out = result.output
+        # the command pattern is stated once, not repeated per topic
+        assert out.count("orient session start <project> <topic>") == 1
+        assert "Active topics (2)" in out
+        assert "re-owm" in out
+        assert "orient" in out
+
+    def test_reason_flag_preserved_within_a_group(self, orient_root):
+        make_workspace(orient_root, [
+            {"name": "re-owm", "path": "/tmp/re-owm"},
+            {"name": "orient", "path": "/tmp/orient"},
+        ])
+        # both *-complete at the same stage → same next-command shape → one group
+        _write_note(orient_root, "re-owm", "mcp", _days_ago(1),
+                    phase_line="harness-writer-complete")
+        _write_note(orient_root, "orient", "cli", _days_ago(1),
+                    phase_line="harness-writer-complete", close_reason="context-limit")
+        result = run("day", "start", env={"ORIENT_ROOT": str(orient_root)})
+        out = result.output
+        assert out.count("/architecture-proposer <project> <topic>") == 1  # grouped header once
+        assert "compact" in out                                            # per-topic flag survives
+        assert "orient/cli" in out
+
+    def test_distinct_shapes_stay_in_separate_groups(self, orient_root):
+        make_workspace(orient_root, [
+            {"name": "re-owm", "path": "/tmp/re-owm"},
+            {"name": "orient", "path": "/tmp/orient"},
+        ])
+        _write_note(orient_root, "re-owm", "mcp", _days_ago(1),
+                    phase_line="harness-writer-complete")
+        _write_note(orient_root, "orient", "cli", _days_ago(1),
+                    phase_line="architecture-proposer-complete")
+        result = run("day", "start", env={"ORIENT_ROOT": str(orient_root)})
+        out = result.output
+        # different next-stage commands → not collapsed into a shared header
+        assert "/architecture-proposer" in out
+        assert "/implementation-writer" in out
+
     def test_note_root_unwritable_errors(self, orient_root):
         make_workspace(orient_root, [])
         note_root = orient_root / "notes"

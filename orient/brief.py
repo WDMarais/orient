@@ -41,6 +41,9 @@ class TopicAction:
     skill: str
     invocation: str
     priority: int
+    # Command shape with <project>/<topic> placeholders — render-time only (used to
+    # group the deterministic fallback). Not serialized; "" on parsed-back actions.
+    template: str = ""
 
 
 @dataclass
@@ -80,6 +83,7 @@ def get_next_action(
             skill="session-start",
             invocation=f"orient session start {project} {topic}",
             priority=2,
+            template="orient session start <project> <topic>",
         )
 
     if lookup not in _PHASE_TABLE:
@@ -89,6 +93,7 @@ def get_next_action(
             skill="unknown",
             invocation="open <note-path> to orient, then choose next stage",
             priority=3,
+            template="open <note-path> to orient, then choose next stage",
         )
 
     skill, tpl, priority = _PHASE_TABLE[lookup]
@@ -98,6 +103,7 @@ def get_next_action(
         skill=skill,
         invocation=tpl.format(project=project, topic=topic),
         priority=priority,
+        template=tpl.format(project="<project>", topic="<topic>"),
     )
 
 
@@ -388,19 +394,34 @@ def run_brief(
         )
     else:
         topic_map = {t.topic: t for t in token.topics}
-        lines = []
+
+        def reason_note(topic_key: str) -> str:
+            t = topic_map.get(topic_key)
+            if not t or not t.close_reason or t.close_reason in ("natural-end", ""):
+                return ""
+            return {
+                "budget-hit": " [previous session hit budget limit]",
+                "context-limit": " [previous session hit context limit — consider /compact]",
+            }.get(t.close_reason, f" [previous close: {t.close_reason}]")
+
+        # Group topics that share a command shape (its placeholder template) under one
+        # header, so the invocation pattern is stated once instead of repeated per
+        # topic. Distinct shapes (different pipeline phases) keep their own group;
+        # per-topic reason flags are preserved inline either way.
+        groups: dict[str, list[TopicAction]] = {}
         for a in actions:
-            t = topic_map.get(a.topic)
-            reason_note = ""
-            if t and t.close_reason and t.close_reason not in ("natural-end", ""):
-                if t.close_reason == "budget-hit":
-                    reason_note = f" [previous session hit budget limit]"
-                elif t.close_reason == "context-limit":
-                    reason_note = f" [previous session hit context limit — consider /compact]"
-                else:
-                    reason_note = f" [previous close: {t.close_reason}]"
-            lines.append(f"- {a.topic}: {a.invocation}{reason_note}")
-        prose = "\n".join(lines)
+            groups.setdefault(a.template, []).append(a)
+
+        blocks: list[str] = []
+        for template, group in groups.items():
+            if len(group) == 1:
+                a = group[0]
+                blocks.append(f"- {a.topic}: {a.invocation}{reason_note(a.topic)}")
+                continue
+            header = f"Active topics ({len(group)}): use `{template}`"
+            lines = [f"  {a.topic}{reason_note(a.topic)}" for a in group]
+            blocks.append("\n".join([header, *lines]))
+        prose = "\n\n".join(blocks)
 
     brief_path.write_text(_serialize_frontmatter(fm) + "\n" + prose + "\n")
     print(prose)
