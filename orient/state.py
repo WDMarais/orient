@@ -55,22 +55,28 @@ def save_state(
     orient_root: Path,
     states: dict[str, ProjectState],
     active_topics: list[str] | None = None,
+    last_day_close: str | None = None,
 ) -> None:
     """Write atomically: tmp → rename. Keep .bak as single backup.
 
     active_topics is preserved across writes: pass an explicit list to replace it,
     or None to carry forward whatever is on disk — so sync and other state writers
-    do not clobber the active-topics registry.
+    do not clobber the active-topics registry. last_day_close (the day-close frontier
+    date) follows the same carry-forward rule.
     """
     path = _state_path(orient_root)
     tmp = path.with_suffix(".toml.tmp")
 
     if active_topics is None:
         active_topics = load_active_topics(orient_root)
+    if last_day_close is None:
+        last_day_close = load_last_day_close(orient_root)
 
     data: dict = {}
     if active_topics:
         data["active_topics"] = active_topics
+    if last_day_close:
+        data["last_day_close"] = last_day_close
     data["project"] = {}
     for name, state in states.items():
         data["project"][name] = {
@@ -140,3 +146,36 @@ def drop_active_topic(orient_root: Path, project: str, topic: str) -> bool:
         return False
     save_state(orient_root, load_state(orient_root), active_topics=[t for t in topics if t != key])
     return True
+
+
+# ---------------------------------------------------------------------------
+# Day-close frontier — the date of the most recent promoted day marker. day close
+# advances it; backfilling behind it never regresses it (spec-day-close.md).
+# ---------------------------------------------------------------------------
+
+def load_last_day_close(orient_root: Path) -> str | None:
+    """Read the last_day_close date string; None if absent/corrupt."""
+    path = _state_path(orient_root)
+    bak = path.with_suffix(".toml.bak")
+
+    def _parse(p: Path) -> str | None:
+        try:
+            data = tomllib.loads(p.read_text())
+        except (OSError, tomllib.TOMLDecodeError):
+            return None
+        value = data.get("last_day_close")
+        return value if isinstance(value, str) else None
+
+    if not path.exists():
+        return None
+    value = _parse(path)
+    if value is not None:
+        return value
+    if bak.exists():
+        return _parse(bak)
+    return None
+
+
+def save_last_day_close(orient_root: Path, day_close_date: str) -> None:
+    """Advance the day-close frontier pointer, preserving project state + active topics."""
+    save_state(orient_root, load_state(orient_root), last_day_close=day_close_date)

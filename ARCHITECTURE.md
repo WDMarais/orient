@@ -5,8 +5,7 @@
 ```
 orient/
 ├── __init__.py
-├── __main__.py          # entry point: python -m orient
-├── cli.py               # Typer app — all subcommands; terminal node
+├── cli.py               # Typer app — all subcommands; terminal node (entry point: `orient` console script)
 ├── config.py            # workspace.toml management; ProjectEntry, EffectiveConfig, ValidationResult
 ├── state.py             # state.toml management; ProjectState
 ├── note.py              # NOTES.md append/parse; NoteEntry, infer_tag
@@ -15,6 +14,7 @@ orient/
 ├── preflight.py         # run_preflight, PreflightResult
 ├── session_note.py      # parse_note, run_session_note, ParsedNote, SessionSection
 ├── brief.py             # build_preflight_token, get_next_action, run_brief, BriefFrontmatter
+├── day_close.py         # aggregate_day, serialize_marker, run_day_close, DayMarker
 ├── llm.py               # LLMClient Protocol, AnthropicClient, CommandClient, get_llm_client
 ├── skill.py             # parse_skill, discover_skills, resolve_skill, assemble_skill, run_skill_show, Skill
 ├── skills/              # native SKILL.md bodies (package data): day-starter, session-closer, dev-pipeline, ...
@@ -31,6 +31,7 @@ tests/
 ├── test_status.py
 ├── test_sync.py
 ├── test_brief.py
+├── test_day_close.py
 ├── test_session_note.py
 ├── test_llm.py
 └── test_skill.py
@@ -667,6 +668,63 @@ Design decisions:
 Spec gaps:
 - `test_stdout_shows_prose_not_frontmatter`: assertion is loose (`"---" not in output`).
   Tighten during CLI implementation by asserting output starts after the closing `---\n`.
+
+---
+
+### orient.day_close
+
+EOD keystone: aggregates the day's session notes into the day marker + pre-plan that
+`day start` consumes next morning. Mirrors `brief.py`'s current-file + archive pattern
+(`day-marker.md` + `day-markers/<date>.md`) and its injectable-client fallback. See
+[spec-day-close.md](spec-day-close.md).
+
+```python
+@dataclass
+class DayMarker:
+    date: str
+    shipped: list[str]       # "project/topic: synthesis from ## Shipped"
+    open_threads: list[str]  # "project/topic: Pending/Deferred still live"
+    cross_topic: list[str]   # ## Calls + NOTES.md sweep (+ optional synthesis line)
+    pre_plan: list[str]      # ordered next actions (pending-first, then deferred)
+    flags: list[str]         # worked-not-closed / alarm-reason flags
+
+def aggregate_day(orient_root: Path, target_date: str) -> DayMarker
+    # Deterministic, API-free. Walks notes/<project>/<topic>/<target_date>.md across
+    # every project (filesystem, not workspace.toml) + NOTES.md date-filtered sweep.
+    # The structured marker is the source of truth.
+
+def serialize_marker(marker: DayMarker) -> str
+    # Renders the marker file (date: frontmatter + sections). Empty sections omitted;
+    # a fully empty day still writes "_nothing closed today_" — never a silent no-op.
+
+def run_day_close(
+    orient_root: Path,
+    target_date: Optional[str] = None,   # defaults to today; future dates rejected
+    client: Optional[LLMClient] = None,  # None → deterministic no-Haiku branch
+) -> None
+    # 1. Reject future target_date (error:future-date on stderr, exit 1).
+    # 2. Reject note_root that exists but is not a directory (exit 1).
+    # 3. aggregate_day(); optional single _enrich_cross_topic Haiku pass when a client
+    #    is present and there is shipped/open-thread content.
+    # 4. Frontier placement (state.last_day_close, never regresses):
+    #    - promote (target >= effective frontier): write current day-marker.md, archive
+    #      a stale current marker, advance the frontier. Same-day re-run overwrites in
+    #      place (no archive).
+    #    - backfill (target < frontier): write straight to day-markers/<date>.md; current
+    #      marker and frontier untouched.
+```
+
+Design decisions:
+- Effective frontier = `max(state.last_day_close, current marker's own date:)` — a fresher
+  current marker is never clobbered by a stale pointer.
+- `run_day_close` takes the injectable `LLMClient` (None in tests / `--zdr` / no-key →
+  deterministic). The Haiku pass only appends one cross-topic synthesis line on top of the
+  already-complete deterministic marker; any failure leaves the marker untouched.
+
+Spec gaps:
+- Touched-but-unclosed detection only covers topics with a `<date>.md` note lacking a
+  `## Session` block. The spec also wants git-commits-since-midnight / note-dir-mtime
+  detection for topics with **no note at all** — deferred, documented gap.
 
 ---
 

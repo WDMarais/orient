@@ -11,6 +11,7 @@ from typing import Annotated, Optional
 import typer
 
 from orient.brief import run_brief
+from orient.day_close import run_day_close
 from orient.config import (
     EffectiveConfig,
     add_project_entry,
@@ -275,6 +276,46 @@ def day_start(
 
     try:
         run_brief(orient_root, client=client)
+    except SystemExit as exc:
+        raise typer.Exit(code=int(exc.code) if exc.code else 1)
+    except OSError as exc:
+        typer.echo(f"cannot write: {exc}")
+        raise typer.Exit(code=1)
+
+
+@day_app.command("close")
+def day_close(
+    date_str: Annotated[
+        Optional[str],
+        typer.Option(
+            "--date",
+            help="Backdate the close (YYYY-MM-DD). Selects which day's notes are "
+            "aggregated and the marker filename. Never moves the frontier backward; "
+            "future dates are rejected.",
+        ),
+    ] = None,
+    zdr: Annotated[
+        bool,
+        typer.Option(
+            "--zdr",
+            help="Zero-data-retention: make no API calls; cross-topic synthesis "
+            "degrades to deterministic aggregation. Also triggered by ORIENT_NO_API=1.",
+        ),
+    ] = False,
+) -> None:
+    orient_root = _orient_root()
+    _require_config(orient_root)
+
+    note_root = orient_root / "notes"
+    if note_root.exists() and not os.access(note_root, os.R_OK):
+        typer.echo(f"cannot read note root: {note_root}")
+        raise typer.Exit(code=1)
+
+    config = load_effective_config(orient_root)
+    client = get_llm_client(config.llm, zdr=zdr)
+
+    try:
+        run_day_close(orient_root, target_date=date_str, client=client)
     except SystemExit as exc:
         raise typer.Exit(code=int(exc.code) if exc.code else 1)
     except OSError as exc:

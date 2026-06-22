@@ -14,6 +14,7 @@ lifecycle-token/ZDR) drive the CLI plus a `native_dir` fixture that monkeypatche
 """
 from __future__ import annotations
 
+from datetime import date
 from pathlib import Path
 from typing import Optional
 
@@ -407,13 +408,26 @@ class TestLifecycleTokens:
         assert r.exit_code == 0
         assert "SESSION CLOSE BODY" in r.output
 
-    def test_day_closer_emits_body_alone(self, orient_root, native_dir):
-        # day-closer token deferred until `day close` exists -> body alone for now.
+    def test_day_closer_includes_marker_token(self, orient_root, native_dir):
+        # day close is built: day-closer emits today's auto-aggregated marker as its
+        # context token, before the body. Workspace-wide — no project/topic needed.
         _write_skill(native_dir, "day-closer", body="DAY CLOSE BODY")
         _write_workspace(orient_root)
+        today = date.today().isoformat()
+        note = _note_path(orient_root, "myproj", "mytopic", today)
+        note.parent.mkdir(parents=True, exist_ok=True)
+        note.write_text(
+            f"# {today} - myproj/mytopic\n\n## Shipped\n- shipped-marker-item\n\n"
+            "## Pending\n\n## Deferred\n\n## Session\n- reason: natural-end\n- phase: \n- model: sonnet\n"
+        )
         r = run("skill", "show", "day-closer", env={"ORIENT_ROOT": str(orient_root)})
         assert r.exit_code == 0
         assert "DAY CLOSE BODY" in r.output
+        # token = aggregated marker preview, emitted before the body
+        assert "shipped-marker-item" in r.output
+        assert r.output.index("shipped-marker-item") < r.output.index("DAY CLOSE BODY")
+        # emit-only: previewing the marker must NOT write or advance anything
+        assert not (orient_root / "day-marker.md").exists()
 
 
 # ===========================================================================
@@ -453,7 +467,5 @@ class TestEmitOnly:
 # - test_topic_briefer_includes_cold_brief: spec-skill.md pairs topic-briefer with the
 #   `session start` cold brief but the exact token rendering (which note fields appear)
 #   is not pinned; assertion accepts either the carried Pending text or the prev date.
-# - day-closer context token: deferred by spec until `day close` (spec-day-close.md) is
-#   built; test_day_closer_emits_body_alone encodes the interim "body alone" contract.
 # - Chained overlays (external extends external) are declared out of scope in
 #   ARCHITECTURE.md; test_extends_base_must_be_native pins the error, not a behavior.

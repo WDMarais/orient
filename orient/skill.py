@@ -17,6 +17,7 @@ from typing import Callable, Optional
 
 from orient.brief import PreflightToken, build_preflight_token
 from orient.config import EffectiveConfig
+from orient.day_close import aggregate_day, serialize_marker
 from orient.preflight import PreflightResult, run_preflight
 from orient.session_note import build_cold_brief, parse_note
 
@@ -206,12 +207,19 @@ def _topic_briefer_token(orient_root: Path, project: Optional[str], topic: Optio
     return build_cold_brief(project, topic, prev)
 
 
+def _day_closer_token(orient_root: Path, project: Optional[str], topic: Optional[str]) -> str:
+    # Workspace-wide, like day-starter. Emit-only: aggregate today's notes into a marker
+    # preview WITHOUT writing it or advancing the frontier — running the command does that.
+    today = date.today().isoformat()
+    return serialize_marker(aggregate_day(orient_root, today))
+
+
 # Lifecycle native → context-token provider. Uniform (orient_root, project, topic).
 _LIFECYCLE_TOKENS: dict[str, Callable[[Path, Optional[str], Optional[str]], str]] = {
     "day-starter": _day_starter_token,
     "session-closer": _session_closer_token,
     "topic-briefer": _topic_briefer_token,
-    # "day-closer": pending — day close unbuilt; emits body alone for now.
+    "day-closer": _day_closer_token,
 }
 
 # Lifecycle skills whose token needs an explicit project/topic to build.
