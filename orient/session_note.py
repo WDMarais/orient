@@ -126,6 +126,61 @@ def _write_skeleton(
     note_path.write_text(content)
 
 
+def _section_block(text: str, heading: str) -> Optional[str]:
+    """Return the full block for a '## heading' (the heading line plus its body up to
+    the next '## ' heading or EOF), or None if the heading is absent."""
+    lines = text.splitlines()
+    start = next((i for i, line in enumerate(lines) if line.strip() == heading), None)
+    if start is None:
+        return None
+    end = len(lines)
+    for j in range(start + 1, len(lines)):
+        if lines[j].startswith("## "):
+            end = j
+            break
+    return "\n".join(lines[start:end]).rstrip()
+
+
+def _replace_or_append_section(text: str, heading: str, block: str) -> str:
+    """Return text with the '## heading' section replaced by block, or block appended
+    if the heading is absent. Every other section is left untouched."""
+    lines = text.splitlines()
+    start = next((i for i, line in enumerate(lines) if line.strip() == heading), None)
+    if start is None:
+        base = text.rstrip()
+        return (base + "\n\n" + block + "\n") if base else block + "\n"
+    end = len(lines)
+    for j in range(start + 1, len(lines)):
+        if lines[j].startswith("## "):
+            end = j
+            break
+    merged = lines[:start] + block.splitlines() + lines[end:]
+    return "\n".join(merged).rstrip() + "\n"
+
+
+def _sync_open_threads(topic_dir_path: Path) -> None:
+    """Mirror the '## Open threads' section from pr-context.md into context.md.
+
+    Deterministic and filesystem-only — the mechanical half, not the skill's judgment.
+    Touches only that one section; the rest of context.md is preserved. Silent no-op if
+    pr-context.md is absent or carries no such section. Idempotent.
+    """
+    pr_context = topic_dir_path / "pr-context.md"
+    if not pr_context.exists():
+        return
+    try:
+        block = _section_block(pr_context.read_text(), "## Open threads")
+    except OSError:
+        return
+    if block is None:
+        return
+    context_md = topic_dir_path / "context.md"
+    existing = context_md.read_text() if context_md.exists() else ""
+    updated = _replace_or_append_section(existing, "## Open threads", block)
+    if updated != existing:
+        context_md.write_text(updated)
+
+
 def run_session_note(
     project: str,
     topic: str,
@@ -164,6 +219,7 @@ def run_session_note(
             print("---")
 
     else:  # close
+        _sync_open_threads(note_path.parent)
         if preflight.mode == "append" and note_path.exists():
             session_section = f"\n## Session\n- reason: {reason}\n- phase: \n- model: sonnet\n"
             with note_path.open("a") as f:

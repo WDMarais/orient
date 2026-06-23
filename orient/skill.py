@@ -18,6 +18,7 @@ from typing import Callable, Optional
 from orient.brief import PreflightToken, build_preflight_token
 from orient.config import EffectiveConfig
 from orient.day_close import aggregate_day, serialize_marker
+from orient.paths import topic_dir
 from orient.preflight import PreflightResult, run_preflight
 from orient.session_note import build_cold_brief, parse_note
 
@@ -197,6 +198,18 @@ def _session_closer_token(orient_root: Path, project: Optional[str], topic: Opti
         f"file: {notes_md}",
         f"append flagged items as: {today} HH:MM [{project}] <text>",
     ]
+
+    tdir = topic_dir(orient_root, project, topic)
+    pr_context = tdir / "pr-context.md"
+    context_md = tdir / "context.md"
+    if pr_context.exists() or context_md.exists():
+        lines.append("")
+        lines.append("## Topic context artifacts")
+        if context_md.exists():
+            lines.append(f"context.md: {context_md} (## Open threads synced from pr-context.md)")
+        if pr_context.exists():
+            lines.append(f"pr-context.md: {pr_context}")
+
     return "\n".join(lines)
 
 

@@ -62,6 +62,13 @@ The sweep target in the context token is mechanically resolved — use it as giv
 This sweep is **project-local** — only items relevant to this project/topic. Genuinely
 cross-project or speculative observations are the hub's domain (day close), not yours.
 
+## Topic context artifacts (mechanical — already done)
+
+If this topic carries a `pr-context.md`, `orient session close` has already mirrored its
+`## Open threads` section into the topic's `context.md` (touching only that section). The
+context token lists whichever artifacts exist. This is mechanical — you do not edit
+`context.md`; just reference the open threads if they bear on the note you are finishing.
+
 This is the half `orient session close` cannot do: the command sees only the filesystem,
 never the conversation. You see the conversation — so the sweep is yours.
 

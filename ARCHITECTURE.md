@@ -6,6 +6,7 @@
 orient/
 ├── __init__.py
 ├── cli.py               # Typer app — all subcommands; terminal node (entry point: `orient` console script)
+├── paths.py             # canonical ORIENT_ROOT layout: notes_root, topic_dir
 ├── config.py            # workspace.toml management; ProjectEntry, EffectiveConfig, ValidationResult
 ├── state.py             # state.toml management; ProjectState
 ├── note.py              # NOTES.md append/parse; NoteEntry, infer_tag
@@ -538,7 +539,15 @@ def run_session_note(
     #    path + context for the in-conversation LLM to fill. Mechanical — NO Haiku.
     # 4. Close mode only: appends ## Session block skeleton; the NOTES.md sweep is the
     #    in-conversation session's job (it has the context), not a here-and-now API call.
-    # Note: orient_root / "notes" / project / topic / YYYY-MM-DD.md is the note path.
+    # 5. Close mode only: _sync_open_threads() mirrors pr-context.md's ## Open threads
+    #    into context.md (touch-only that section; idempotent; no-op if absent).
+    # Note: paths.topic_dir(orient_root, project, topic) / YYYY-MM-DD.md is the note path.
+
+def _sync_open_threads(topic_dir: Path) -> None
+    # Deterministic, filesystem-only. Copies the ## Open threads block from
+    # topic_dir/pr-context.md into topic_dir/context.md via _section_block /
+    # _replace_or_append_section. Creates context.md if absent; preserves its other
+    # sections. Silent no-op when pr-context.md is absent or has no such section.
 ```
 
 Design decisions:

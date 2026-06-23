@@ -515,6 +515,61 @@ class TestPreflightEdgeCases:
             assert cli_result.exit_code != 0
 
 
+def _topic_dir(orient_root: Path, project: str, topic: str) -> Path:
+    return orient_root / "notes" / project / topic
+
+
+class TestOpenThreadsSync:
+    """`orient session close` mirrors pr-context.md's ## Open threads into context.md."""
+
+    def _setup(self, orient_root):
+        make_workspace(orient_root, [{"name": "orient", "path": "/tmp/orient"}])
+        tdir = _topic_dir(orient_root, "orient", "cli")
+        tdir.mkdir(parents=True, exist_ok=True)
+        return tdir
+
+    def test_creates_context_md_with_open_threads_only(self, orient_root):
+        tdir = self._setup(orient_root)
+        (tdir / "pr-context.md").write_text(
+            "---\npr_updated_at: x\n---\n\n## Full diff\n(stuff)\n\n"
+            "## Open threads\n- thread A\n- thread B\n"
+        )
+        run("session", "close", "orient", "cli", env={"ORIENT_ROOT": str(orient_root)})
+        context = (tdir / "context.md").read_text()
+        assert "## Open threads" in context
+        assert "thread A" in context and "thread B" in context
+        assert "Full diff" not in context     # only the Open threads section is synced
+
+    def test_replaces_open_threads_preserving_other_sections(self, orient_root):
+        tdir = self._setup(orient_root)
+        (tdir / "context.md").write_text(
+            "# context\n\n## What\nthe feature framing\n\n## Open threads\n- stale thread\n"
+        )
+        (tdir / "pr-context.md").write_text("## Open threads\n- fresh thread\n")
+        run("session", "close", "orient", "cli", env={"ORIENT_ROOT": str(orient_root)})
+        context = (tdir / "context.md").read_text()
+        assert "fresh thread" in context
+        assert "stale thread" not in context
+        assert "## What" in context and "the feature framing" in context  # untouched
+
+    def test_no_pr_context_leaves_context_untouched(self, orient_root):
+        tdir = self._setup(orient_root)
+        original = "# context\n\n## What\nframing\n"
+        (tdir / "context.md").write_text(original)
+        run("session", "close", "orient", "cli", env={"ORIENT_ROOT": str(orient_root)})
+        assert (tdir / "context.md").read_text() == original
+
+    def test_sync_is_idempotent(self, orient_root):
+        tdir = self._setup(orient_root)
+        (tdir / "pr-context.md").write_text("## Open threads\n- thread A\n")
+        run("session", "close", "orient", "cli", env={"ORIENT_ROOT": str(orient_root)})
+        first = (tdir / "context.md").read_text()
+        run("session", "close", "orient", "cli", env={"ORIENT_ROOT": str(orient_root)})
+        second = (tdir / "context.md").read_text()
+        assert first == second
+        assert second.count("## Open threads") == 1
+
+
 # === SPEC GAPS ===
 # TestNotesSweep.test_close_appends_flagged_items_to_notes_md: the sweep is driven by
 #   Haiku reading the session context - we cannot assert specific swept content without

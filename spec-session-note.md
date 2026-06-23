@@ -191,6 +191,30 @@ orient session close (no NOTES.md items found)
   → sweep runs silently; nothing appended
 ```
 
+## Topic context artifacts (close only)
+
+A topic directory may hold two per-topic markdown artifacts alongside its dated notes:
+
+- `pr-context.md` — fetched PR state (diff, description, `## Open threads`). Written by
+  some external producer; orient only ever reads it.
+- `context.md` — the topic's cold-start doc. orient owns one section of it.
+
+On close, the mechanical command mirrors `pr-context.md`'s `## Open threads` section into
+`context.md` — **touching only that section**; everything else in `context.md` is
+preserved (it is otherwise human/tool curated). Deterministic, filesystem-only, no Haiku.
+
+```
+orient session close (pr-context.md present with ## Open threads)
+  → context.md gains/replaces its ## Open threads from pr-context.md (other sections kept)
+  → idempotent: re-running with unchanged pr-context.md rewrites nothing
+
+orient session close (no pr-context.md, or it has no ## Open threads)
+  → sync is a silent no-op; context.md is left untouched
+```
+
+This does not affect the rollforward invariant: the dated note remains fully
+self-contained. `context.md` is a convenience artifact, re-derivable from `pr-context.md`.
+
 ## Preflight edge cases (both modes)
 
 ```
