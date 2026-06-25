@@ -18,9 +18,6 @@ from typing import Callable, Optional
 from orient.brief import PreflightToken, build_preflight_token
 from orient.config import EffectiveConfig
 from orient.day_close import aggregate_day, serialize_marker
-from orient.paths import topic_dir
-from orient.preflight import PreflightResult, run_preflight
-from orient.session_note import build_cold_brief, parse_note
 
 
 class SkillKind(str, Enum):
@@ -172,52 +169,8 @@ def _render_preflight_token(token: PreflightToken) -> str:
     return "\n".join(lines)
 
 
-def _render_preflight_result(result: PreflightResult) -> str:
-    lines = ["# orient session close — preflight context", f"mode: {result.mode}"]
-    if result.prev_path:
-        lines.append(f"previous note: {result.prev_path}")
-    lines.append(f"pending carried: {result.pending_count}")
-    lines.append(f"deferred carried: {result.deferred_count}")
-    return "\n".join(lines)
-
-
 def _day_starter_token(orient_root: Path, project: Optional[str], topic: Optional[str]) -> str:
     return _render_preflight_token(build_preflight_token(orient_root))
-
-
-def _session_closer_token(orient_root: Path, project: Optional[str], topic: Optional[str]) -> str:
-    assert project is not None and topic is not None  # gated by _NEEDS_PROJECT_TOPIC
-    today = date.today().isoformat()
-    notes_md = orient_root / "notes" / project / "NOTES.md"
-    lines = [
-        _render_preflight_result(run_preflight(project, topic, "close", orient_root)),
-        "",
-        "## NOTES.md sweep target (mechanically resolved)",
-        f"date: {today}",
-        f"project tag: [{project}]",
-        f"file: {notes_md}",
-        f"append flagged items as: {today} HH:MM [{project}] <text>",
-    ]
-
-    tdir = topic_dir(orient_root, project, topic)
-    pr_context = tdir / "pr-context.md"
-    context_md = tdir / "context.md"
-    if pr_context.exists() or context_md.exists():
-        lines.append("")
-        lines.append("## Topic context artifacts")
-        if context_md.exists():
-            lines.append(f"context.md: {context_md} (## Open threads synced from pr-context.md)")
-        if pr_context.exists():
-            lines.append(f"pr-context.md: {pr_context}")
-
-    return "\n".join(lines)
-
-
-def _topic_briefer_token(orient_root: Path, project: Optional[str], topic: Optional[str]) -> str:
-    assert project is not None and topic is not None  # gated by _NEEDS_PROJECT_TOPIC
-    result = run_preflight(project, topic, "start", orient_root)
-    prev = parse_note(Path(result.prev_path)) if result.prev_path else None
-    return build_cold_brief(project, topic, prev)
 
 
 def _day_closer_token(orient_root: Path, project: Optional[str], topic: Optional[str]) -> str:
@@ -228,15 +181,18 @@ def _day_closer_token(orient_root: Path, project: Optional[str], topic: Optional
 
 
 # Lifecycle native → context-token provider. Uniform (orient_root, project, topic).
+# The session-tier skills (session-closer, topic-briefer) deliberately have no token:
+# their paired commands (`orient session close` / `orient session start`) emit the
+# mechanical context themselves and then append the skill body, so preflight is consumed
+# exactly once. Only the day-tier markers carry a token here.
 _LIFECYCLE_TOKENS: dict[str, Callable[[Path, Optional[str], Optional[str]], str]] = {
     "day-starter": _day_starter_token,
-    "session-closer": _session_closer_token,
-    "topic-briefer": _topic_briefer_token,
     "day-closer": _day_closer_token,
 }
 
-# Lifecycle skills whose token needs an explicit project/topic to build.
-_NEEDS_PROJECT_TOPIC = {"session-closer", "topic-briefer"}
+# Lifecycle skills whose token needs an explicit project/topic to build. (None today —
+# the day-tier tokens are workspace-wide.)
+_NEEDS_PROJECT_TOPIC: set[str] = set()
 
 
 # ---------------------------------------------------------------------------

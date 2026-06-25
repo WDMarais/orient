@@ -8,8 +8,9 @@ description: Finish today's orient session note from the live session — fill G
 `orient session close <project> <topic>` has already run. It routed preflight, wrote
 the skeleton note at `<ORIENT_ROOT>/notes/<project>/<topic>/YYYY-MM-DD.md` with the
 previous note's Pending and Deferred restated verbatim, and stubbed a `## Session`
-block. The context token above carries the concrete date, note path, previous-note
-contents, and the NOTES.md sweep target.
+block. Its output above this skill body carries the concrete note path (the `note:`
+line), the previous note's contents, and a `--- session close priming ---` block with
+the NOTES.md sweep target and any per-topic context artifacts.
 
 Your job is the judgment the command cannot do: read this session and finish the note.
 
@@ -18,8 +19,8 @@ Core invariant: the latest note file is fully self-contained — `day-starter` a
 
 ## Finish the note
 
-Edit the skeleton the command wrote (its path is in the token). Keep the title line
-exactly `# YYYY-MM-DD - <project>/<topic>` — ASCII " - ", never an em-dash.
+Edit the skeleton the command wrote (its path is the `note:` line above). Keep the title
+line exactly `# YYYY-MM-DD - <project>/<topic>` — ASCII " - ", never an em-dash.
 
 **## Goal** — one line: the intent for this session.
 
@@ -52,10 +53,10 @@ action away. Deferred = consciously punted with a destination.
 Scan **this session** for anything flagged for the notes vault — phrases like "add to
 notes", "worth remembering", "park this", or an explicit NOTES.md mention.
 
-The sweep target in the context token is mechanically resolved — use it as given:
-- append each flagged item to the `file:` path from the token (this project's `NOTES.md`);
-- one line per item, formatted exactly as the token's `append ... as:` line shows —
-  `<date> <HH:MM> [<project>] <text>` — the date and `[<project>]` tag are already fixed
+The sweep target in the priming block above is mechanically resolved — use it as given:
+- append each flagged item to the `NOTES.md sweep target:` path (this project's `NOTES.md`);
+- one line per item, formatted exactly as the priming's `append ... as:` line shows —
+  `<date> <HH:MM>  [<project>]  <text>` — the date and `[<project>]` tag are already fixed
   for you, so supply only the time and the item text;
 - create the file if it is absent; if nothing is flagged, do nothing (stay silent).
 
@@ -66,7 +67,7 @@ cross-project or speculative observations are the hub's domain (day close), not 
 
 If this topic carries a `pr-context.md`, `orient session close` has already mirrored its
 `## Open threads` section into the topic's `context.md` (touching only that section). The
-context token lists whichever artifacts exist. This is mechanical — you do not edit
+priming block above lists whichever artifacts exist. This is mechanical — you do not edit
 `context.md`; just reference the open threads if they bear on the note you are finishing.
 
 This is the half `orient session close` cannot do: the command sees only the filesystem,
@@ -78,4 +79,4 @@ never the conversation. You see the conversation — so the sweep is yours.
   or restated verbatim — none deleted silently;
 - the `## Session` phase reflects where the session landed;
 - NOTES.md-flagged items are appended to the vault with the concrete date/tag from the
-  token, or nothing is appended if none were flagged.
+  priming block, or nothing is appended if none were flagged.

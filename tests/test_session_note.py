@@ -451,11 +451,11 @@ class TestNotesSweep:
     def test_close_emits_concrete_notes_md_sweep_directive(self, orient_root):
         # The sweep is judgment work — recognizing items flagged for NOTES.md in the
         # live conversation. The mechanical `orient session close` has no view of the
-        # conversation, so the sweep is directed by the emitted session-closer skill.
-        # orient resolves the target mechanically (date, project tag, vault path) and
-        # bakes it into the emitted prompt; the live session does the recognizing.
+        # conversation, but it resolves the target mechanically (date, project tag, vault
+        # path) and prints it in a `--- session close priming ---` block; the live session
+        # does the recognizing. The directive is emitted by the command, not `skill show`.
         make_workspace(orient_root, [{"name": "orient", "path": "/tmp/orient"}])
-        r = run("skill", "show", "session-closer", "orient", "cli",
+        r = run("session", "close", "orient", "cli",
                 env={"ORIENT_ROOT": str(orient_root)})
         assert r.exit_code == 0
         out = r.output
@@ -463,8 +463,8 @@ class TestNotesSweep:
         assert str(orient_root / "notes" / "orient" / "NOTES.md") in out
         assert "[orient]" in out          # project tag baked in
         assert _today() in out            # date baked in
-        # the emitted skill directs the live session to perform the sweep
-        assert "NOTES.md sweep" in out
+        # the priming block names the sweep target for the live session
+        assert "NOTES.md sweep target" in out
 
     def test_close_no_flagged_items_notes_md_unchanged(self, orient_root):
         make_workspace(orient_root, [{"name": "orient", "path": "/tmp/orient"}])
@@ -568,6 +568,81 @@ class TestOpenThreadsSync:
         second = (tdir / "context.md").read_text()
         assert first == second
         assert second.count("## Open threads") == 1
+
+
+class TestSessionClosePriming:
+    """`orient session close` prints a `--- session close priming ---` block (mechanical
+    context for the judgment half: NOTES.md sweep target + per-topic artifacts)."""
+
+    def test_priming_on_new_note(self, orient_root):
+        make_workspace(orient_root, [{"name": "orient", "path": "/tmp/orient"}])
+        r = run("session", "close", "orient", "cli", env={"ORIENT_ROOT": str(orient_root)})
+        assert r.exit_code == 0
+        assert "--- session close priming ---" in r.output
+        assert str(orient_root / "notes" / "orient" / "NOTES.md") in r.output
+        # the fixed entry prefix the sweep should use
+        assert f"{_today()} <HH:MM>  [orient]  <text>" in r.output
+
+    def test_priming_on_append_path(self, orient_root):
+        # A checkpoint earlier today makes close take the append branch; priming still emits.
+        make_workspace(orient_root, [{"name": "orient", "path": "/tmp/orient"}])
+        run("session", "checkpoint", "orient", "cli", env={"ORIENT_ROOT": str(orient_root)})
+        r = run("session", "close", "orient", "cli", env={"ORIENT_ROOT": str(orient_root)})
+        assert r.exit_code == 0
+        assert "--- session close priming ---" in r.output
+        assert str(orient_root / "notes" / "orient" / "NOTES.md") in r.output
+
+    def test_priming_lists_present_artifacts(self, orient_root):
+        make_workspace(orient_root, [{"name": "orient", "path": "/tmp/orient"}])
+        tdir = _topic_dir(orient_root, "orient", "cli")
+        tdir.mkdir(parents=True, exist_ok=True)
+        (tdir / "pr-context.md").write_text("## Open threads\n- t\n")
+        r = run("session", "close", "orient", "cli", env={"ORIENT_ROOT": str(orient_root)})
+        assert r.exit_code == 0
+        assert "topic context artifacts:" in r.output
+        assert str(tdir / "pr-context.md") in r.output
+
+    def test_no_artifacts_section_when_none_present(self, orient_root):
+        make_workspace(orient_root, [{"name": "orient", "path": "/tmp/orient"}])
+        r = run("session", "close", "orient", "cli", env={"ORIENT_ROOT": str(orient_root)})
+        assert r.exit_code == 0
+        assert "topic context artifacts:" not in r.output
+
+
+class TestJudgmentSkillEmission:
+    """The lifecycle commands append their paired native skill body after the mechanical
+    output, so the in-session LLM gets the judgment half inline. checkpoint does not."""
+
+    def test_close_emits_session_closer_body(self, orient_root):
+        make_workspace(orient_root, [{"name": "orient", "path": "/tmp/orient"}])
+        r = run("session", "close", "orient", "cli", env={"ORIENT_ROOT": str(orient_root)})
+        assert r.exit_code == 0
+        assert "--- /session-closer ---" in r.output
+        assert "# Session closer" in r.output
+        # body comes after the mechanical scaffold/priming
+        assert r.output.index("--- session close priming ---") < r.output.index("# Session closer")
+
+    def test_start_emits_topic_briefer_body(self, orient_root):
+        make_workspace(orient_root, [{"name": "orient", "path": "/tmp/orient"}])
+        r = run("session", "start", "orient", "cli", env={"ORIENT_ROOT": str(orient_root)})
+        assert r.exit_code == 0
+        assert "--- /topic-briefer ---" in r.output
+        assert "# Topic briefer" in r.output
+
+    def test_checkpoint_emits_no_skill_body(self, orient_root):
+        make_workspace(orient_root, [{"name": "orient", "path": "/tmp/orient"}])
+        r = run("session", "checkpoint", "orient", "cli", env={"ORIENT_ROOT": str(orient_root)})
+        assert r.exit_code == 0
+        assert "/session-closer" not in r.output
+        assert "Session closer" not in r.output
+
+    def test_close_without_workspace_skips_skill_but_still_scaffolds(self, orient_root):
+        # No workspace.toml: skill emission is best-effort and silently skipped, but the
+        # mechanical note + priming (which need no config) still run.
+        r = run("session", "close", "orient", "cli", env={"ORIENT_ROOT": str(orient_root)})
+        assert r.exit_code == 0
+        assert "--- session close priming ---" in r.output
+        assert "--- /session-closer ---" not in r.output
 
 
 # === SPEC GAPS ===

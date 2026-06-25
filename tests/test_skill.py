@@ -366,10 +366,13 @@ class TestLifecycleTokens:
         assert "mytopic" in r.output
         assert r.output.index("mytopic") < r.output.index("DAY STARTER BODY")
 
-    def test_session_closer_includes_preflight_token(self, orient_root, native_dir):
+    def test_session_closer_emits_body_only(self, orient_root, native_dir):
+        # Session-tier skills carry NO context token: `orient session close` emits the
+        # mechanical context (note path, prev note, priming block) itself and then appends
+        # this body, so preflight is consumed exactly once. `skill show` is body-only.
         _write_skill(native_dir, "session-closer", body="SESSION CLOSE BODY")
         _write_workspace(orient_root)
-        # A previous note makes run_preflight(close) produce a real token (prev_path/pending).
+        # A previous note would have fed the old preflight token — it must NOT leak now.
         prev = _note_path(orient_root, "myproj", "mytopic", "2026-06-20")
         prev.parent.mkdir(parents=True, exist_ok=True)
         prev.write_text(
@@ -378,12 +381,12 @@ class TestLifecycleTokens:
         r = run("skill", "show", "session-closer", "myproj", "mytopic",
                 env={"ORIENT_ROOT": str(orient_root)})
         assert r.exit_code == 0
-        assert "SESSION CLOSE BODY" in r.output
-        # token references the previous note path
-        assert "2026-06-20" in r.output
-        assert r.output.index("2026-06-20") < r.output.index("SESSION CLOSE BODY")
+        assert r.output.strip() == "SESSION CLOSE BODY"
+        assert "2026-06-20" not in r.output
 
-    def test_topic_briefer_includes_cold_brief(self, orient_root, native_dir):
+    def test_topic_briefer_emits_body_only(self, orient_root, native_dir):
+        # Like session-closer: the cold brief comes from `orient session start`, not from a
+        # skill-show token. `skill show topic-briefer` is body-only.
         _write_skill(native_dir, "topic-briefer", body="TOPIC BRIEF BODY")
         _write_workspace(orient_root)
         prev = _note_path(orient_root, "myproj", "mytopic", "2026-06-20")
@@ -394,19 +397,18 @@ class TestLifecycleTokens:
         r = run("skill", "show", "topic-briefer", "myproj", "mytopic",
                 env={"ORIENT_ROOT": str(orient_root)})
         assert r.exit_code == 0
-        assert "TOPIC BRIEF BODY" in r.output
-        # cold brief surfaces the prior topic's state
-        assert "open thread" in r.output or "2026-06-20" in r.output
+        assert r.output.strip() == "TOPIC BRIEF BODY"
+        assert "open thread" not in r.output
 
-    def test_session_closer_without_project_topic_emits_body_and_warns(
+    def test_session_closer_without_project_topic_emits_body(
         self, orient_root, native_dir
     ):
-        # No project/topic given -> token skipped, body still emitted, stderr note.
+        # No project/topic given -> still body-only, no error (no token to need them).
         _write_skill(native_dir, "session-closer", body="SESSION CLOSE BODY")
         _write_workspace(orient_root)
         r = run("skill", "show", "session-closer", env={"ORIENT_ROOT": str(orient_root)})
         assert r.exit_code == 0
-        assert "SESSION CLOSE BODY" in r.output
+        assert r.output.strip() == "SESSION CLOSE BODY"
 
     def test_day_closer_includes_marker_token(self, orient_root, native_dir):
         # day close is built: day-closer emits today's auto-aggregated marker as its

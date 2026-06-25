@@ -79,8 +79,9 @@ No dedicated `types.py` module. Each type lives in the module that owns it:
 9. `orient.llm` — depends on (3) [config: `LLMConfig`]; leaf otherwise; unblocks brief
 10. `orient.session_note` — depends on (1), (8); parallel with (11)
 11. `orient.brief` — depends on (1), (3), (4), (5), (9); parallel with (10)
-12. `orient.skill` — depends on (3) [config: `[skills]` section], (8) preflight, (11) brief;
-    imports their token builders for lifecycle context; leaf otherwise
+12. `orient.skill` — depends on (3) [config: `[skills]` section], (11) brief, and
+    `day_close`; imports their token builders for day-tier lifecycle context. No longer
+    depends on preflight/session_note (session-tier context comes from the paired command)
 13. `orient.cli` — terminal; depends on all
 
 ## Per-module interface
@@ -788,12 +789,16 @@ def assemble_skill(
     # base is None for native/standalone skills; context_token is None for non-lifecycle.
 
 # Lifecycle native → context-token provider. Uniform signature; unused args ignored.
+# DAY-TIER ONLY: their context is workspace-wide and re-derivable, so `skill show` builds
+# it from scratch. Session-tier natives (session-closer, topic-briefer) have NO token —
+# their paired command (`orient session close` / `start`) emits the mechanical context and
+# appends the body itself, so the stateful preflight is consumed exactly once. See cli
+# `_emit_judgment_skill` and session_note `_session_close_priming`.
 _LIFECYCLE_TOKENS: dict[str, Callable[[Path, Optional[str], Optional[str]], str]] = {
-    "day-starter":    ...,   # wraps brief.build_preflight_token (orient_root only)
-    "session-closer": ...,   # wraps preflight.run_preflight(close) (needs project/topic)
-    "topic-briefer":  ...,   # wraps session_note cold-brief (needs project/topic)
-    # "day-closer": pending — day close unbuilt; emits body alone for now
+    "day-starter": ...,   # wraps brief.build_preflight_token (orient_root only)
+    "day-closer":  ...,   # wraps day_close.aggregate_day marker preview (orient_root only)
 }
+_NEEDS_PROJECT_TOPIC: set[str] = set()   # no token needs project/topic today
 
 def run_skill_list(config: EffectiveConfig) -> None
     # One line per skill: "<name>  [native | external | external→<base>]  <source_path>".
@@ -808,8 +813,9 @@ def run_skill_show(
     # 1. discover_skills + resolve_skill(name). Collision/unknown → stderr, exit non-zero.
     # 2. External overlay: resolve its `extends` base (must be native, else error).
     # 3. Lifecycle base = self if native lifecycle, else the extends base. If in
-    #    _LIFECYCLE_TOKENS, build its context token (session-closer/topic-briefer need
-    #    project/topic — if absent, skip token and print an inline note to stderr).
+    #    _LIFECYCLE_TOKENS, build its context token. (Day-tier only today; the
+    #    _NEEDS_PROJECT_TOPIC guard exists but is empty, so session-tier natives just emit
+    #    body — their command supplies context out-of-band.)
     # 4. print(assemble_skill(skill, base, context_token)). Emit-only — no API call ever.
 ```
 
@@ -817,17 +823,18 @@ Design decisions:
 - Native skills are **package data** via `Path(__file__).parent / "skills"`, not
   `ORIENT_ROOT`; they version with orient's source. (Corrects the spec's earlier
   "ORIENT_ROOT-relative" wording, since fixed.)
-- `skill.py` imports `brief.build_preflight_token` and `preflight.run_preflight` at
-  module top (no inline imports) — hence its DAG position after both. `_LIFECYCLE_TOKENS`
-  keeps the per-skill wiring in a single table.
+- `skill.py` imports `brief.build_preflight_token` and `day_close` aggregation at module
+  top (no inline imports) — hence its DAG position after both. It no longer imports
+  `preflight`/`session_note`: the session-tier judgment halves get their context from the
+  paired command (cli `_emit_judgment_skill` → `run_skill_show` for body, after
+  `run_session_*` has printed the mechanical context), not from a token here.
+  `_LIFECYCLE_TOKENS` keeps the per-skill wiring in a single table.
 - `assemble_skill` is pure so the ordering invariant (token → base → overlay) is
   unit-testable with no filesystem or lifecycle-command involvement.
 - ZDR: `run_skill_show` never calls the API in any mode, so it needs no special-casing.
   The `--zdr`/`ORIENT_NO_API` gate lives in cli for the *other* (claude -p) commands.
 
 Spec gaps:
-- `day-closer` context token deferred until `day close` (spec-day-close.md) is built;
-  until then the skill emits its body alone. Not a blocker.
 - Chained overlays (an external whose `extends` base is itself external): out of scope.
   `resolve_skill`/`run_skill_show` require the base to be native. Documented, unsupported
   at MVP.
@@ -853,8 +860,16 @@ app: typer.Typer   # root app
 
 # CLI arg shape for skill:
 # orient skill show <name> [project] [topic]
-#   project/topic optional; required only for lifecycle native context tokens
-#   (session-closer, topic-briefer). orient skill list takes no args.
+#   project/topic optional; used only by day-tier lifecycle tokens that want them (none
+#   today). session-tier natives emit body-only here. orient skill list takes no args.
+
+# session start / close append their paired judgment skill after the mechanical output:
+def _emit_judgment_skill(name: str, project: str, topic: str) -> None
+    # Best-effort: skip silently if no workspace.toml (the mechanical scaffold is the
+    # contract; the skill body is a convenience). Loads config, prints a
+    # "--- /<name> ---" header, then run_skill_show(name, ...). Swallows SystemExit so a
+    # skill-resolution failure never aborts the already-completed close/start.
+    # close → "session-closer"; start → "topic-briefer". checkpoint emits nothing.
 ```
 
 Design decisions:

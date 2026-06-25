@@ -52,18 +52,25 @@ intrinsic-to-orient is native — reusability is not the test.
 ## Command ↔ skill pairing
 
 Each native lifecycle skill is the **judgment half** of a command whose **mechanical
-half** already exists. The command produces a context token (preflight routing,
-rolled-forward Pending/Deferred, ranked topics, skeleton path); the skill is the
-prompt that directs the in-session LLM to act on it.
+half** already exists. The mechanical half produces context — preflight routing,
+rolled-forward Pending/Deferred, ranked topics, skeleton path; the skill is the prompt
+that directs the in-session LLM to act on it. How the two halves meet differs by tier:
 
-`orient skill show <native>` for a lifecycle skill therefore emits **the skill body +
-the context token its paired command produces** — not the prompt alone. The harness
-consumes lifecycle command tokens; it is not bolted alongside them. This is the
-lookup-vs-judgment layer made literal: Python does the lookup, the emitted skill
-directs the judgment.
+- **Day-tier** (`day-starter`, `day-closer`): the mechanical context is workspace-wide
+  and re-derivable on demand, so `orient skill show <native>` emits **the skill body +
+  a context token** the skill computes from scratch (preflight preview, marker preview).
+  Showing the skill is self-sufficient; no paired command need have run.
+- **Session-tier** (`session-closer`, `topic-briefer`): the mechanical half is a
+  **stateful, single-consumption** preflight that writes a dated note. Re-running it from
+  `skill show` after the command already ran would double-consume preflight and report
+  stale counts. So these skills carry **no token**: their paired command
+  (`orient session close` / `orient session start`) emits the mechanical context itself
+  — scaffold path, previous note, close priming / cold brief — and then appends the skill
+  body. `orient skill show <session-tier>` is therefore **body-only**.
 
-Standalone external skills have no paired command; they emit body plus any explicitly
-requested context only.
+Either way it is the lookup-vs-judgment layer made literal: Python does the lookup once,
+the emitted skill directs the judgment. Standalone external skills have no paired command;
+they emit body plus any explicitly requested context only.
 
 ## Commands
 
@@ -74,9 +81,11 @@ orient skill list
 
 orient skill show <name>
   → resolve <name>, print the assembled prompt to stdout:
-      [context token from paired command, if lifecycle native]
+      [context token, if <name> is a day-tier lifecycle native]
       [native base body, if <name> is an external with extends]
       [skill body]
+  → session-tier natives (session-closer, topic-briefer) emit body-only — their paired
+    command emits the mechanical context and appends the body itself.
   → emit-only; never calls the API. This is the ZDR-safe path.
 ```
 

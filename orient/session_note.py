@@ -181,6 +181,37 @@ def _sync_open_threads(topic_dir_path: Path) -> None:
         context_md.write_text(updated)
 
 
+def _session_close_priming(
+    orient_root: Path,
+    project: str,
+    topic: str,
+    today: str,
+    topic_dir_path: Path,
+) -> str:
+    """The mechanical context the judgment half needs to finish a close: the project-local
+    NOTES.md sweep target (with the fixed entry prefix) and any per-topic context artifacts.
+
+    Printed on stdout after the scaffold; the note path, date, and previous-note contents
+    are already surfaced by the caller. Filesystem-only — no preflight re-run, no Haiku.
+    """
+    notes_md = orient_root / "notes" / project / "NOTES.md"
+    lines = [
+        "--- session close priming ---",
+        f"NOTES.md sweep target: {notes_md}",
+        f"  append each flagged item as: {today} <HH:MM>  [{project}]  <text>",
+    ]
+    artifacts = [
+        topic_dir_path / name
+        for name in ("pr-context.md", "context.md")
+        if (topic_dir_path / name).exists()
+    ]
+    if artifacts:
+        lines.append("topic context artifacts:")
+        lines.extend(f"  - {a}" for a in artifacts)
+    lines.append("---")
+    return "\n".join(lines)
+
+
 def run_session_note(
     project: str,
     topic: str,
@@ -226,15 +257,16 @@ def run_session_note(
                 f.write(session_section)
             print(f"note: {note_path}")
             print(note_path.read_text())
-            return
+        else:
+            prev_parsed = _load_prev(preflight.prev_path)
+            _write_skeleton(note_path, project, topic, today, reason=reason, prev_parsed=prev_parsed)
+            print(f"note: {note_path}")
+            if prev_parsed and preflight.prev_path:
+                print("\n--- previous note ---")
+                print(Path(preflight.prev_path).read_text())
+                print("---")
 
-        prev_parsed = _load_prev(preflight.prev_path)
-        _write_skeleton(note_path, project, topic, today, reason=reason, prev_parsed=prev_parsed)
-        print(f"note: {note_path}")
-        if prev_parsed and preflight.prev_path:
-            print("\n--- previous note ---")
-            print(Path(preflight.prev_path).read_text())
-            print("---")
+        print("\n" + _session_close_priming(orient_root, project, topic, today, note_path.parent))
 
 
 # Close reasons that warrant a flag when resuming a topic.

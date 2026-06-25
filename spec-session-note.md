@@ -215,6 +215,40 @@ orient session close (no pr-context.md, or it has no ## Open threads)
 This does not affect the rollforward invariant: the dated note remains fully
 self-contained. `context.md` is a convenience artifact, re-derivable from `pr-context.md`.
 
+## Judgment-skill handoff (start + close)
+
+`session start` and `session close` are the mechanical halves of the `topic-briefer` and
+`session-closer` native skills. To keep preflight consumed exactly once, the **command**
+emits both the mechanical context and the skill body — `orient skill show` for these two
+natives is body-only (see spec-skill.md "Command ↔ skill pairing").
+
+```
+orient session close <project> <topic>
+  → (writes/appends note, syncs open threads — as above)
+  → prints a "--- session close priming ---" block:
+      NOTES.md sweep target: <ORIENT_ROOT>/notes/<project>/NOTES.md
+        append each flagged item as: YYYY-MM-DD <HH:MM>  [<project>]  <text>
+      topic context artifacts:           ← omitted if none present
+        - <…>/pr-context.md
+        - <…>/context.md
+  → then appends the session-closer skill body under a "--- /session-closer ---" header
+
+orient session start <project> <topic>
+  → (scaffolds note, prints cold brief — as above)
+  → then appends the topic-briefer skill body under a "--- /topic-briefer ---" header
+
+orient session checkpoint <project> <topic>
+  → mechanical only; emits no priming block and no skill body (not a lifecycle edge)
+
+orient session close (no workspace.toml configured)
+  → mechanical note + priming still run (they need no config)
+  → skill-body emission is best-effort and silently skipped
+```
+
+The priming block is the non-stateful context the judgment half needs (sweep target,
+artifact pointers); the note path, date, and previous-note contents are already in the
+preceding command output. Nothing here re-runs preflight.
+
 ## Preflight edge cases (both modes)
 
 ```

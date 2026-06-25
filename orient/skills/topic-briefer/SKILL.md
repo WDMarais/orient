@@ -6,8 +6,8 @@ description: Orient a session on a project/topic before work begins — read the
 # Topic briefer
 
 `orient session start <project> <topic>` has already run: it scaffolded today's note
-(rolling Pending/Deferred forward from the last note) and emitted the **cold brief**
-shown in the context token above — the previous note's Goal, Pending, Deferred, and any
+(rolling Pending/Deferred forward from the last note) and printed the **cold brief**
+shown above this skill body — the previous note's Goal, Pending, Deferred, and any
 close-time alarm.
 
 Your job is the judgment the command can't do: turn that cold brief into orientation and

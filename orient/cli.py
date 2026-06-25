@@ -163,6 +163,22 @@ def _run_session(project: str, topic: str, mode: str, reason: str) -> None:
         raise typer.Exit(code=int(exc.code) if exc.code else 1)
 
 
+def _emit_judgment_skill(name: str, project: str, topic: str) -> None:
+    """Append a native lifecycle skill's body after the mechanical command output, so the
+    in-session LLM has the judgment half inline. Best-effort: silently skip if the
+    workspace is not configured (the mechanical scaffold has already been written and is
+    the contract; the skill body is a convenience). Never aborts the command."""
+    orient_root = _orient_root()
+    if not (orient_root / "workspace.toml").exists():
+        return
+    try:
+        config = load_effective_config(orient_root)
+        print(f"\n--- /{name} ---")
+        run_skill_show(name, orient_root, config, project, topic)
+    except SystemExit:
+        pass
+
+
 @session_app.command("start")
 def session_start(project: str, topic: str) -> None:
     orient_root = _orient_root()
@@ -170,6 +186,7 @@ def session_start(project: str, topic: str) -> None:
         run_session_start(project, topic, orient_root)
     except SystemExit as exc:
         raise typer.Exit(code=int(exc.code) if exc.code else 1)
+    _emit_judgment_skill("topic-briefer", project, topic)
 
 
 @session_app.command("checkpoint")
@@ -187,6 +204,7 @@ def session_close(
     if reason_arg and reason_arg.startswith("reason:"):
         reason = reason_arg[len("reason:"):]
     _run_session(project, topic, "close", reason=reason)
+    _emit_judgment_skill("session-closer", project, topic)
 
 
 # ---------------------------------------------------------------------------
