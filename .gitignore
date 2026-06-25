@@ -4,3 +4,10 @@ __pycache__/
 .venv/
 dist/
 *.egg-info/
+
+# Stray Claude Code state if its config dir is ever pointed at this repo
+backups/
+cache/
+history.jsonl
+projects/
+sessions/
