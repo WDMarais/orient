@@ -3,6 +3,10 @@
 Companion to `orient-spec-seed.md`. Not behavioral spec — these are the "why and
 where" behind the design decisions, and open questions worth tracking.
 
+See also `orient-conceptual-notes-stigmergy.md` — the named coordination model behind
+the notes tree (traces as memory + guide, multi-channel pheromone + decay, priority ×
+actionability, "don't duplicate the environment's pheromone").
+
 ---
 
 ## What this pipeline is actually for

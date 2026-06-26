@@ -91,6 +91,7 @@ orient status             # freshness + uncommitted state across workspace
 |---|---|
 | `orient-spec-seed.md` | Original settled decisions + open questions (pre-interview) |
 | `orient-conceptual-notes.md` | Pipeline rationale, alarm taxonomy, parallel execution model |
+| `orient-conceptual-notes-stigmergy.md` | Stigmergy as orient's coordination frame: traces, multi-channel pheromone + decay, priority × actionability |
 | `lib-adaptation-notes.md` | How agent-skills/lib maps to orient's lib (thin fork, ~5 line changes) |
 | `agent-skills-pipeline.md` | Pure function model for agent-skills being adapted from |
 
