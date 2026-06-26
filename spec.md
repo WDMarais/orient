@@ -80,7 +80,7 @@ LIFECYCLE SPINE
   orient day close                       day-close  — aggregate + pre-plan      (Haiku)
 
 UTILITIES (anytime)
-  orient sync | status | note | config | topic
+  orient sync | status | note | config | topic | diff
 ```
 
 The active-topics registry (`orient topic mark|drop|list`) is the explicit set
@@ -98,6 +98,7 @@ backdating invariant above for `--date` on the two close edges.
 | sync | `orient sync` | [spec-sync.md](spec-sync.md) | Pull/push repos per config |
 | status | `orient status` | [spec-status.md](spec-status.md) | Repo state display without sync |
 | note | `orient note` | [spec-note.md](spec-note.md) | Lightweight observation capture |
+| diff | `orient diff snapshot\|list\|compare` | [spec-diff.md](spec-diff.md) | Persist + compare a topic's diffs over time (source-agnostic, ZDR-safe) |
 | config | `orient config` | [spec-config.md](spec-config.md) | workspace.toml management (incl. multi-root profiles) |
 | topic | `orient topic mark\|drop\|list` | [spec-topic.md](spec-topic.md) | Active-topics registry that day start ranks |
 | day-start | `orient day start` | [spec-brief.md](spec-brief.md) | SOD context + queue (Haiku skill) |
