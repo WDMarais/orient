@@ -49,11 +49,12 @@ class LLMConfig(BaseModel):
 
 
 class SkillOverride(BaseModel):
-    """A [[skills.override]] entry: pins kind/extends that frontmatter can't carry or
-    that should win over it. External skills only; natives need no entry."""
+    """A [[skills.override]] entry: pins kind/extends/modes that frontmatter can't carry
+    or that should win over it. External skills only; natives need no entry."""
     name: str
     kind: Optional[str] = None
     extends: Optional[str] = None
+    modes: list[str] = []   # mode vocabulary for `orient skill mode` + body filtering
 
 
 class SkillsConfig(BaseModel):

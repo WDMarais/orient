@@ -22,14 +22,17 @@ from orient.config import (
 from orient.llm import get_llm_client
 from orient.note import append_note
 from orient.session_note import run_session_note, run_session_start
-from orient.skill import run_skill_list, run_skill_show
+from orient.skill import discover_skills, resolve_skill, run_skill_list, run_skill_show
 from orient.state import (
     ProjectState,
+    clear_skill_mode,
     drop_active_topic,
     load_active_topics,
+    load_skill_modes,
     load_state,
     mark_active_topic,
     save_state,
+    set_skill_mode,
 )
 from orient.status import compute_status
 from orient.sync import sync_all
@@ -280,13 +283,59 @@ def skill_show(
     name: str,
     project: Annotated[Optional[str], typer.Argument()] = None,
     topic: Annotated[Optional[str], typer.Argument()] = None,
+    mode: Annotated[
+        Optional[str],
+        typer.Option(
+            "--mode",
+            help="Filter the body to this mode's slice for this call ('off' = whole "
+            "body). Defaults to the skill's persisted mode (orient skill mode).",
+        ),
+    ] = None,
 ) -> None:
     orient_root = _orient_root()
     config = _load_config(orient_root)
     try:
-        run_skill_show(name, orient_root, config, project=project, topic=topic)
+        run_skill_show(name, orient_root, config, project=project, topic=topic, mode=mode)
     except SystemExit as exc:
         raise typer.Exit(code=int(exc.code) if exc.code else 1)
+
+
+@skill_app.command("mode")
+def skill_mode(
+    name: str,
+    level: Annotated[Optional[str], typer.Argument()] = None,
+) -> None:
+    """Show, set, or clear a skill's active mode. Bare = show; <level> = set; 'off' = clear.
+
+    The level must be one the skill declares (via [[skills.override]] modes). The active
+    mode filters that skill's body on `orient skill show <name>`.
+    """
+    orient_root = _orient_root()
+    config = _load_config(orient_root)
+    try:
+        skill = resolve_skill(name, discover_skills(config))
+    except ValueError as exc:
+        typer.echo(str(exc))
+        raise typer.Exit(code=1)
+
+    if level is None:
+        current = load_skill_modes(orient_root).get(name)
+        typer.echo(f"{name}: mode {current}" if current else f"{name}: no mode set")
+        return
+
+    if level == "off":
+        typer.echo(f"{name}: mode cleared" if clear_skill_mode(orient_root, name)
+                   else f"{name}: no mode set")
+        return
+
+    if not skill.modes:
+        typer.echo(f"skill '{name}' declares no modes (add them via [[skills.override]] modes)")
+        raise typer.Exit(code=1)
+    if level not in skill.modes:
+        typer.echo(f"'{level}' is not a mode of '{name}' — choose: {', '.join(skill.modes)}")
+        raise typer.Exit(code=1)
+    set_skill_mode(orient_root, name, level)
+    typer.echo(f"{name}: mode set to {level}")
 
 
 # ---------------------------------------------------------------------------

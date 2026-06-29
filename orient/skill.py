@@ -8,8 +8,9 @@ See spec-skill.md and the `### orient.skill` section of ARCHITECTURE.md.
 """
 from __future__ import annotations
 
+import re
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from enum import Enum
 from pathlib import Path
@@ -18,6 +19,7 @@ from typing import Callable, Optional
 from orient.brief import PreflightToken, build_preflight_token
 from orient.config import EffectiveConfig
 from orient.day_close import aggregate_day, serialize_marker
+from orient.state import load_skill_modes
 
 
 class SkillKind(str, Enum):
@@ -33,6 +35,7 @@ class Skill:
     body: str                       # markdown body, frontmatter stripped
     source_path: str                # absolute path to the SKILL.md
     extends: Optional[str] = None   # native base name, for external overlays
+    modes: list[str] = field(default_factory=list)  # mode vocabulary (from override)
 
 
 # ---------------------------------------------------------------------------
@@ -143,9 +146,32 @@ def discover_skills(config: EffectiveConfig) -> list[Skill]:
             override = overrides.get(skill.name)
             if override and override.extends is not None:
                 skill.extends = override.extends
+            if override and override.modes:
+                skill.modes = override.modes
             skills.append(skill)
 
     return skills
+
+
+def filter_body_by_mode(body: str, mode: str, modes: list[str]) -> str:
+    """Keep only the active mode's rows in a mode-keyed body.
+
+    A line whose leading label — a bold table cell `| **X** |` or a bullet `- X:` —
+    matches one of the skill's declared `modes` is kept only when X is the active
+    mode; lines not labeled with any declared mode are kept verbatim. Generic over
+    any mode-keyed SKILL.md (mirrors ponytail's filterSkillBodyForMode). Case-folded.
+    """
+    declared = {m.lower() for m in modes}
+    active = mode.lower()
+    kept: list[str] = []
+    for line in body.splitlines():
+        m = re.match(r"^\|\s*\*\*(.+?)\*\*\s*\|", line) or re.match(r"^-\s*([^:]+):", line)
+        if m:
+            label = m.group(1).strip().lower()
+            if label in declared and label != active:
+                continue
+        kept.append(line)
+    return "\n".join(kept).strip()
 
 
 # ---------------------------------------------------------------------------
@@ -216,14 +242,29 @@ def run_skill_show(
     config: EffectiveConfig,
     project: Optional[str] = None,
     topic: Optional[str] = None,
+    mode: Optional[str] = None,
 ) -> None:
-    """Resolve <name> and emit the assembled prompt. Emit-only — never calls the API."""
+    """Resolve <name> and emit the assembled prompt. Emit-only — never calls the API.
+
+    Mode filtering: an explicit `mode` ("off" disables filtering) wins; otherwise the
+    skill's persisted mode (state.skill_modes) applies. When an effective mode and the
+    skill's declared modes are both present, the body is sliced to that mode's rows.
+    """
     skills = discover_skills(config)
     try:
         skill = resolve_skill(name, skills)
     except ValueError as exc:
         print(str(exc), file=sys.stderr)
         raise SystemExit(1)
+
+    if mode == "off":
+        effective_mode: Optional[str] = None
+    elif mode is not None:
+        effective_mode = mode
+    else:
+        effective_mode = load_skill_modes(orient_root).get(skill.name)
+    if effective_mode and skill.modes:
+        skill.body = filter_body_by_mode(skill.body, effective_mode, skill.modes)
 
     base: Optional[Skill] = None
     lifecycle_name: Optional[str] = None

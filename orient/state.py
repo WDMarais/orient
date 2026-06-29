@@ -56,13 +56,14 @@ def save_state(
     states: dict[str, ProjectState],
     active_topics: list[str] | None = None,
     last_day_close: str | None = None,
+    skill_modes: dict[str, str] | None = None,
 ) -> None:
     """Write atomically: tmp → rename. Keep .bak as single backup.
 
     active_topics is preserved across writes: pass an explicit list to replace it,
     or None to carry forward whatever is on disk — so sync and other state writers
     do not clobber the active-topics registry. last_day_close (the day-close frontier
-    date) follows the same carry-forward rule.
+    date) and skill_modes (per-skill active mode) follow the same carry-forward rule.
     """
     path = _state_path(orient_root)
     tmp = path.with_suffix(".toml.tmp")
@@ -71,12 +72,16 @@ def save_state(
         active_topics = load_active_topics(orient_root)
     if last_day_close is None:
         last_day_close = load_last_day_close(orient_root)
+    if skill_modes is None:
+        skill_modes = load_skill_modes(orient_root)
 
     data: dict = {}
     if active_topics:
         data["active_topics"] = active_topics
     if last_day_close:
         data["last_day_close"] = last_day_close
+    if skill_modes:
+        data["skill_modes"] = skill_modes
     data["project"] = {}
     for name, state in states.items():
         data["project"][name] = {
@@ -179,3 +184,52 @@ def load_last_day_close(orient_root: Path) -> str | None:
 def save_last_day_close(orient_root: Path, day_close_date: str) -> None:
     """Advance the day-close frontier pointer, preserving project state + active topics."""
     save_state(orient_root, load_state(orient_root), last_day_close=day_close_date)
+
+
+# ---------------------------------------------------------------------------
+# Per-skill active mode — {skill_name: level}. `orient skill mode <name> <level>`
+# sets it; `orient skill show <name>` filters the body to it (spec-skill.md).
+# ---------------------------------------------------------------------------
+
+def load_skill_modes(orient_root: Path) -> dict[str, str]:
+    """Read the skill_modes table ({skill: level}); {} if absent/corrupt."""
+    path = _state_path(orient_root)
+    bak = path.with_suffix(".toml.bak")
+
+    def _parse(p: Path) -> dict[str, str] | None:
+        try:
+            data = tomllib.loads(p.read_text())
+        except (OSError, tomllib.TOMLDecodeError):
+            return None
+        raw = data.get("skill_modes", {})
+        if not isinstance(raw, dict):
+            return {}
+        return {k: v for k, v in raw.items() if isinstance(v, str)}
+
+    if not path.exists():
+        return {}
+    modes = _parse(path)
+    if modes is not None:
+        return modes
+    if bak.exists():
+        modes = _parse(bak)
+        if modes is not None:
+            return modes
+    return {}
+
+
+def set_skill_mode(orient_root: Path, skill: str, level: str) -> None:
+    """Set a skill's active mode, preserving all other state."""
+    modes = load_skill_modes(orient_root)
+    modes[skill] = level
+    save_state(orient_root, load_state(orient_root), skill_modes=modes)
+
+
+def clear_skill_mode(orient_root: Path, skill: str) -> bool:
+    """Clear a skill's active mode. Returns False if none was set."""
+    modes = load_skill_modes(orient_root)
+    if skill not in modes:
+        return False
+    del modes[skill]
+    save_state(orient_root, load_state(orient_root), skill_modes=modes)
+    return True

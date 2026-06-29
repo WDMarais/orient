@@ -183,6 +183,7 @@ class SkillOverride(BaseModel):
     name: str
     kind: Optional[str] = None       # "native"|"external"; inferred from location if absent
     extends: Optional[str] = None    # native base name, for an overlay skill
+    modes: list[str] = []            # mode vocabulary for `orient skill mode` + body filtering
 
 class SkillsConfig(BaseModel):
     paths: list[str] = []            # search roots for external SKILL.md (tilde-expanded)
@@ -271,7 +272,18 @@ last_synced_at   = "2026-05-24T10:00:00+00:00"
 [project.working-notes]
 last_synced_hash = "mtime:2026-05-24T09:30:00+00:00"
 last_synced_at   = "2026-05-24T09:30:00+00:00"
+
+active_topics  = ["orient/cli"]          # registry (mark/drop)
+last_day_close = "2026-05-24"            # day-close frontier
+[skill_modes]
+ponytail = "ultra"                       # per-skill active mode
 ```
+
+Beyond `[project.*]`, state.toml carries top-level `active_topics`, `last_day_close`,
+and `[skill_modes]` (skill → level). All three use the same **carry-forward** rule in
+`save_state`: pass an explicit value to replace, or `None` to preserve what's on disk —
+so a sync (which only writes `[project.*]`) never clobbers them. Accessors:
+`load_skill_modes` / `set_skill_mode` / `clear_skill_mode` (mirroring active-topics).
 
 Design decisions:
 - Single-backup MVP. Non-breaking extension to 6-snapshot rolling buffer post-MVP
@@ -766,6 +778,7 @@ class Skill:
     body: str                       # markdown body, frontmatter stripped
     source_path: str                # absolute path to the SKILL.md
     extends: Optional[str] = None   # native base name, for external overlays
+    modes: list[str] = []           # mode vocabulary (from SkillOverride.modes)
 
 def parse_skill(path: Path, kind: SkillKind) -> Skill
     # Splits leading --- frontmatter from body. Frontmatter keys: name, description,
@@ -779,8 +792,13 @@ def _native_skills_dir() -> Path
 def discover_skills(config: EffectiveConfig) -> list[Skill]
     # Native: parse every <pkg>/skills/*/SKILL.md (kind=native).
     # External: for each config.skills.paths root, glob **/SKILL.md (kind=external);
-    #   apply matching SkillOverride by name (kind/extends override frontmatter).
+    #   apply matching SkillOverride by name (kind/extends/modes override frontmatter).
     # Native first, then external; each in discovery order.
+
+def filter_body_by_mode(body: str, mode: str, modes: list[str]) -> str
+    # Slice a mode-keyed body to the active mode: a line whose leading label
+    # (`| **X** |` table cell or `- X:` bullet) names a declared mode is kept only
+    # when X == mode; unlabeled lines kept verbatim. Case-folded. Generic.
 
 def resolve_skill(name: str, skills: list[Skill]) -> Skill
     # Native-first. External may not shadow a native of the same name →
@@ -819,7 +837,10 @@ def run_skill_show(
     config: EffectiveConfig,
     project: Optional[str] = None,
     topic: Optional[str] = None,
+    mode: Optional[str] = None,        # "off" disables; None → persisted state.skill_modes
 ) -> None
+    # 0. Effective mode: explicit `mode` wins ("off" → no filter); else state.skill_modes
+    #    [skill]. If an effective mode and skill.modes both present, filter_body_by_mode.
     # 1. discover_skills + resolve_skill(name). Collision/unknown → stderr, exit non-zero.
     # 2. External overlay: resolve its `extends` base (must be native, else error).
     # 3. Lifecycle base = self if native lifecycle, else the extends base. If in
@@ -869,9 +890,12 @@ app: typer.Typer   # root app
 # mode: "checkpoint" | "close"  (--date backdates both; defaults to today, future rejected)
 
 # CLI arg shape for skill:
-# orient skill show <name> [project] [topic]
+# orient skill show <name> [project] [topic] [--mode <level>|off]
 #   project/topic optional; used only by day-tier lifecycle tokens that want them (none
 #   today). session-tier natives emit body-only here. orient skill list takes no args.
+#   --mode filters the body to a level (off = whole); defaults to the persisted mode.
+# orient skill mode <name> [<level>|off]
+#   bare = show active mode; <level> = set (validated vs declared modes); off = clear.
 
 # session start / close append their paired judgment skill after the mechanical output:
 def _emit_judgment_skill(name: str, project: str, topic: str) -> None

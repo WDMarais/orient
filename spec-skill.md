@@ -79,14 +79,20 @@ orient skill list
   → native skills, then external (with source path + extends target)
   → one per line; marks each native | external | external→<base>
 
-orient skill show <name>
+orient skill show <name> [--mode <level> | --mode off]
   → resolve <name>, print the assembled prompt to stdout:
       [context token, if <name> is a day-tier lifecycle native]
       [native base body, if <name> is an external with extends]
-      [skill body]
+      [skill body — sliced to the active mode if one applies]
   → session-tier natives (session-closer, topic-briefer) emit body-only — their paired
     command emits the mechanical context and appends the body itself.
   → emit-only; never calls the API. This is the ZDR-safe path.
+
+orient skill mode <name> [<level> | off]
+  → bare: print the skill's active mode (or "no mode set")
+  → <level>: set it (validated against the skill's declared modes; error otherwise)
+  → off: clear it
+  → persisted per skill in state.toml ([skill_modes]); filesystem-only, no API
 ```
 
 `show` is the primary verb — orient is a registry and emitter, not an executor of
@@ -117,10 +123,35 @@ extends = "session-closer"        # overlay onto native base
 [[skills.override]]
 name = "pr-reviewer"
 kind = "external"                 # standalone; no generic core
+
+[[skills.override]]
+name = "ponytail"
+modes = ["lite", "full", "ultra"]  # mode vocabulary for `orient skill mode`
 ```
 
 Discovery reads each found SKILL.md's frontmatter for `name`/`kind`/`extends`;
 overrides win over frontmatter. Native skills need no entry.
+
+## Per-skill modes
+
+Some skills carry a built-in intensity axis (e.g. a "lazy senior dev" skill with
+`lite`/`full`/`ultra` rules). orient models this as **per-skill** state, not a global
+mode — a level is meaningful only inside the skill that declares it.
+
+- A skill declares its mode vocabulary via a `modes = [...]` override. A skill with no
+  declared modes has no mode axis (`orient skill mode` on it is an error).
+- `orient skill mode <name> <level>` persists the active level in `state.toml`
+  (`[skill_modes]`), validated against the declared set.
+- `orient skill show <name>` slices the body to the active mode: a line whose leading
+  label — a bold table cell `| **X** |` or a bullet `- X:` — names a declared mode is
+  kept only when X is active; unlabeled lines are kept verbatim. `--mode <level>`
+  overrides for one call; `--mode off` emits the whole body; no active mode emits whole.
+
+This keeps the SKILL.md a single superset document while emitting only the active slice —
+shorter context, no duplicated per-level files. It is mechanical and ZDR-clean (state
+read/write + text filter, no API). orient deliberately does **not** auto-inject the active
+mode every turn: emission stays on-demand via `skill show`, consistent with orient's
+"surface context when asked, don't act in the background" stance.
 
 ## ZDR / emit-only invariant
 

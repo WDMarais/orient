@@ -25,9 +25,11 @@ from orient.skill import (
     Skill,
     SkillKind,
     assemble_skill,
+    filter_body_by_mode,
     parse_skill,
     resolve_skill,
 )
+from orient.state import clear_skill_mode, load_skill_modes, mark_active_topic, set_skill_mode
 
 pytestmark = pytest.mark.skill
 
@@ -463,6 +465,96 @@ class TestEmitOnly:
         r = run("skill", "show", "day-starter", env=env)
         assert r.exit_code == 0
         assert "DAY STARTER BODY" in r.output
+
+
+# ===========================================================================
+# Per-skill mode — state, filter, and the `skill mode` command (spec-skill.md)
+# ===========================================================================
+
+_MODE_BODY = (
+    "Always-kept intro.\n\n"
+    "- lite: lite-only guidance\n"
+    "- full: full-only guidance\n"
+    "- ultra: ultra-only guidance\n\n"
+    "Always-kept outro.\n"
+)
+
+
+def _write_mode_workspace(orient_root: Path, skills_root: Path) -> None:
+    """A workspace with one mode-keyed external skill (ponytail) + its modes override."""
+    d = skills_root / "ponytail"
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "SKILL.md").write_text("---\nname: ponytail\ndescription: d\n---\n\n" + _MODE_BODY)
+    (orient_root / "workspace.toml").write_text(
+        "[defaults]\npush = false\n\n"
+        f'[skills]\npaths = ["{skills_root}"]\n\n'
+        '[[skills.override]]\nname = "ponytail"\nmodes = ["lite", "full", "ultra"]\n'
+    )
+
+
+class TestFilterBodyByMode:
+    def test_keeps_active_drops_other_modes_keeps_unlabeled(self):
+        out = filter_body_by_mode(_MODE_BODY, "ultra", ["lite", "full", "ultra"])
+        assert "ultra-only" in out
+        assert "lite-only" not in out and "full-only" not in out
+        assert "Always-kept intro." in out and "Always-kept outro." in out
+
+    def test_unknown_active_mode_drops_all_labeled_keeps_rest(self):
+        out = filter_body_by_mode(_MODE_BODY, "nope", ["lite", "full", "ultra"])
+        assert "lite-only" not in out and "ultra-only" not in out
+        assert "Always-kept intro." in out
+
+
+class TestSkillModeState:
+    def test_mode_survives_other_state_writes(self, tmp_path):
+        set_skill_mode(tmp_path, "ponytail", "ultra")
+        mark_active_topic(tmp_path, "proj", "topic")     # a different state writer
+        assert load_skill_modes(tmp_path)["ponytail"] == "ultra"
+
+    def test_clear_returns_false_when_unset(self, tmp_path):
+        assert clear_skill_mode(tmp_path, "ponytail") is False
+
+
+class TestSkillModeCommand:
+    def test_show_set_show_clear_roundtrip(self, tmp_path, native_dir):
+        _write_mode_workspace(tmp_path, tmp_path / "skills")
+        env = {"ORIENT_ROOT": str(tmp_path)}
+        assert "no mode set" in run("skill", "mode", "ponytail", env=env).output
+        assert run("skill", "mode", "ponytail", "ultra", env=env).exit_code == 0
+        assert "ultra" in run("skill", "mode", "ponytail", env=env).output
+        run("skill", "mode", "ponytail", "off", env=env)
+        assert "no mode set" in run("skill", "mode", "ponytail", env=env).output
+
+    def test_invalid_level_rejected(self, tmp_path, native_dir):
+        _write_mode_workspace(tmp_path, tmp_path / "skills")
+        r = run("skill", "mode", "ponytail", "bogus", env={"ORIENT_ROOT": str(tmp_path)})
+        assert r.exit_code != 0 and "not a mode" in r.output
+
+    def test_skill_with_no_declared_modes_rejected(self, tmp_path, native_dir):
+        skills = tmp_path / "skills"
+        _write_skill(skills, "plain", body="hi")     # no modes override
+        (tmp_path / "workspace.toml").write_text(
+            f'[defaults]\npush = false\n\n[skills]\npaths = ["{skills}"]\n'
+        )
+        r = run("skill", "mode", "plain", "x", env={"ORIENT_ROOT": str(tmp_path)})
+        assert r.exit_code != 0 and "declares no modes" in r.output
+
+
+class TestSkillShowMode:
+    def test_show_filters_to_persisted_mode(self, tmp_path, native_dir):
+        _write_mode_workspace(tmp_path, tmp_path / "skills")
+        env = {"ORIENT_ROOT": str(tmp_path)}
+        run("skill", "mode", "ponytail", "ultra", env=env)
+        out = run("skill", "show", "ponytail", env=env).output
+        assert "ultra-only" in out
+        assert "lite-only" not in out and "full-only" not in out
+
+    def test_mode_off_emits_whole_body(self, tmp_path, native_dir):
+        _write_mode_workspace(tmp_path, tmp_path / "skills")
+        env = {"ORIENT_ROOT": str(tmp_path)}
+        run("skill", "mode", "ponytail", "ultra", env=env)
+        out = run("skill", "show", "ponytail", "--mode", "off", env=env).output
+        assert "lite-only" in out and "full-only" in out and "ultra-only" in out
 
 
 # === SPEC GAPS ===
