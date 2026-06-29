@@ -131,9 +131,13 @@ def route(
     topic: str,
     mode: str,          # "checkpoint" | "close"
     note_root: Path,
+    target_date: str | None = None,  # backdate (YYYY-MM-DD); prev = latest note strictly before it
 ) -> dict[str, Any]
     # Returns routing dict with keys: mode, prev_path, pending_count, deferred_count,
     # append_line, append_pass, error. orient.preflight wraps this into PreflightResult.
+    # target_date defaults to the system date; it sets the resolved note filename and
+    # the rollforward boundary. _find_latest_before() finds the prev note strictly
+    # before it (not just excluding it), so backdating rolls forward from the right note.
 ```
 
 Design decision: the original agent-skills script outputs line tokens to stdout (for
@@ -441,6 +445,7 @@ def run_preflight(
     topic: str,
     mode: str,              # "checkpoint" | "close"
     orient_root: Path,
+    target_date: Optional[str] = None,   # backdate (YYYY-MM-DD); defaults to today
 ) -> PreflightResult
 ```
 
@@ -533,7 +538,11 @@ def run_session_note(
     mode: str,                              # "checkpoint" | "close"
     orient_root: Path,
     reason: str = "natural-end",
+    target_date: Optional[str] = None,      # backdate the written date; defaults to today
 ) -> None
+    # 0. target_date defaults to today; a future date is rejected (error:future-date,
+    #    exit 1). It sets the written date (filename + header) and the rollforward
+    #    boundary; intra-note HH:MM stays real capture time.
     # 1. Calls run_preflight() to get routing token.
     # 2. On ambiguous/error: surfaces message to stdout, exits non-zero; does not proceed.
     # 3. Scaffolds a skeleton note (rolled-forward Pending/Deferred) and prints the
@@ -565,8 +574,9 @@ Design decisions:
   - duration: ~2h
   - model: haiku
   ```
-- CLI arg shape: `orient session-note <mode> <project> <topic> [reason:<reason>]`
-  (positional args; reason is optional trailing positional).
+- CLI arg shape: `orient session-note <mode> <project> <topic> [reason:<reason>] [--date YYYY-MM-DD]`
+  (positional args; reason is optional trailing positional; --date backdates close and
+  checkpoint — defaults to today, future rejected).
 
 Spec gaps:
 - `TestNotesSweep.test_close_appends_flagged_items_to_notes_md`: Haiku-driven; tested
@@ -855,8 +865,8 @@ app: typer.Typer   # root app
 # skill is a Typer sub-app with: list, show
 
 # CLI arg shape for session-note:
-# orient session-note <mode> <project> <topic> [reason:<reason>]
-# mode: "checkpoint" | "close"
+# orient session-note <mode> <project> <topic> [reason:<reason>] [--date YYYY-MM-DD]
+# mode: "checkpoint" | "close"  (--date backdates both; defaults to today, future rejected)
 
 # CLI arg shape for skill:
 # orient skill show <name> [project] [topic]
