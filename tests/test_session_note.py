@@ -645,6 +645,101 @@ class TestJudgmentSkillEmission:
         assert "--- /session-closer ---" not in r.output
 
 
+@pytest.mark.session_note
+class TestSessionCloseDate:
+    """--date backdates the close: filename + header use the override, rollforward
+    resolves from the note strictly before that date, future dates are rejected.
+    Spec: spec-session-note.md "Date override (backdating)"."""
+
+    def test_date_writes_under_backdated_filename_and_header(self, orient_root):
+        make_workspace(orient_root, [{"name": "orient", "path": "/tmp/orient"}])
+
+        run("session", "close", "orient", "cli", "--date", "2026-05-17",
+            env={"ORIENT_ROOT": str(orient_root)})
+
+        backdated = _note_path(orient_root, "orient", "cli", "2026-05-17")
+        assert backdated.exists()
+        assert not _note_path(orient_root, "orient", "cli", _today()).exists()
+        note = parse_note(backdated)
+        assert note.date == "2026-05-17"
+        assert note.session is not None
+
+    def test_date_rolls_forward_from_note_before_target_not_later(self, orient_root):
+        make_workspace(orient_root, [{"name": "orient", "path": "/tmp/orient"}])
+        # The note before the target carries the pending we expect to roll forward.
+        _write_prev_note(orient_root, "orient", "cli", "2026-05-15",
+                         pending=["earlier pending"])
+        # A later note exists too; backdating must NOT roll forward from it.
+        _write_prev_note(orient_root, "orient", "cli", "2026-05-20",
+                         pending=["later pending"])
+
+        run("session", "close", "orient", "cli", "--date", "2026-05-17",
+            env={"ORIENT_ROOT": str(orient_root)})
+
+        note = parse_note(_note_path(orient_root, "orient", "cli", "2026-05-17"))
+        assert "earlier pending" in note.pending
+        assert "later pending" not in note.pending
+
+    def test_date_appends_to_existing_note_on_that_date(self, orient_root):
+        make_workspace(orient_root, [{"name": "orient", "path": "/tmp/orient"}])
+        existing = _note_path(orient_root, "orient", "cli", "2026-05-17")
+        existing.parent.mkdir(parents=True, exist_ok=True)
+        existing.write_text(
+            "# 2026-05-17 - orient/cli\n\n## Goal\nBackdated day\n\n## Pending\n- item\n\n"
+            "### Checkpoint 1 - 09:00\n- progress\n"
+        )
+
+        run("session", "close", "orient", "cli", "--date", "2026-05-17",
+            env={"ORIENT_ROOT": str(orient_root)})
+
+        content = existing.read_text()
+        assert "Checkpoint 1" in content   # existing content preserved
+        assert "## Session" in content     # close section appended
+        assert not _note_path(orient_root, "orient", "cli", _today()).exists()
+
+    def test_future_date_rejected(self, orient_root):
+        make_workspace(orient_root, [{"name": "orient", "path": "/tmp/orient"}])
+        future = date.today().replace(year=date.today().year + 1).isoformat()
+
+        r = run("session", "close", "orient", "cli", "--date", future,
+                env={"ORIENT_ROOT": str(orient_root)})
+
+        assert r.exit_code != 0
+        assert "future-date" in r.output
+        assert not _note_path(orient_root, "orient", "cli", future).exists()
+
+
+@pytest.mark.session_note
+class TestSessionCheckpointDate:
+    """checkpoint shares the backdating convenience: --date sets the written date and
+    rolls forward from the note before it. Spec: spec-session-note.md "Date override"."""
+
+    def test_checkpoint_date_writes_under_backdated_filename(self, orient_root):
+        make_workspace(orient_root, [{"name": "orient", "path": "/tmp/orient"}])
+        _write_prev_note(orient_root, "orient", "cli", "2026-05-15",
+                         pending=["earlier pending"])
+
+        run("session", "checkpoint", "orient", "cli", "--date", "2026-05-17",
+            env={"ORIENT_ROOT": str(orient_root)})
+
+        backdated = _note_path(orient_root, "orient", "cli", "2026-05-17")
+        assert backdated.exists()
+        assert not _note_path(orient_root, "orient", "cli", _today()).exists()
+        note = parse_note(backdated)
+        assert note.date == "2026-05-17"
+        assert "earlier pending" in note.pending     # rolled forward from before target
+
+    def test_checkpoint_future_date_rejected(self, orient_root):
+        make_workspace(orient_root, [{"name": "orient", "path": "/tmp/orient"}])
+        future = date.today().replace(year=date.today().year + 1).isoformat()
+
+        r = run("session", "checkpoint", "orient", "cli", "--date", future,
+                env={"ORIENT_ROOT": str(orient_root)})
+
+        assert r.exit_code != 0
+        assert "future-date" in r.output
+
+
 # === SPEC GAPS ===
 # TestNotesSweep.test_close_appends_flagged_items_to_notes_md: the sweep is driven by
 #   Haiku reading the session context - we cannot assert specific swept content without

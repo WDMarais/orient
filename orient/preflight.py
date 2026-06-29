@@ -26,9 +26,10 @@ def run_preflight(
     topic: str,
     mode: str,              # "checkpoint" | "close"
     orient_root: Path,
+    target_date: Optional[str] = None,
 ) -> PreflightResult:
     note_root = orient_root / "notes"
-    raw = _route(project, topic, mode, note_root)
+    raw = _route(project, topic, mode, note_root, target_date=target_date)
 
     return PreflightResult(
         mode=raw.get("mode", "error:unrecognised"),

@@ -155,10 +155,12 @@ def sync(
 # session — checkpoint / close
 # ---------------------------------------------------------------------------
 
-def _run_session(project: str, topic: str, mode: str, reason: str) -> None:
+def _run_session(
+    project: str, topic: str, mode: str, reason: str, date_str: Optional[str] = None
+) -> None:
     orient_root = _orient_root()
     try:
-        run_session_note(project, topic, mode, orient_root, reason=reason)
+        run_session_note(project, topic, mode, orient_root, reason=reason, target_date=date_str)
     except SystemExit as exc:
         raise typer.Exit(code=int(exc.code) if exc.code else 1)
 
@@ -190,8 +192,20 @@ def session_start(project: str, topic: str) -> None:
 
 
 @session_app.command("checkpoint")
-def session_checkpoint(project: str, topic: str) -> None:
-    _run_session(project, topic, "checkpoint", reason="natural-end")
+def session_checkpoint(
+    project: str,
+    topic: str,
+    date_str: Annotated[
+        Optional[str],
+        typer.Option(
+            "--date",
+            help="Backdate the checkpoint (YYYY-MM-DD): writes/appends under that date's "
+            "note and rolls forward from the note before it. Intra-note timestamps stay "
+            "real; future dates are rejected.",
+        ),
+    ] = None,
+) -> None:
+    _run_session(project, topic, "checkpoint", reason="natural-end", date_str=date_str)
 
 
 @session_app.command("close")
@@ -199,11 +213,20 @@ def session_close(
     project: str,
     topic: str,
     reason_arg: Annotated[Optional[str], typer.Argument()] = None,
+    date_str: Annotated[
+        Optional[str],
+        typer.Option(
+            "--date",
+            help="Backdate the close (YYYY-MM-DD): sets the note's date (filename + "
+            "header) and rolls forward from the note before that date. Intra-note "
+            "timestamps stay real; future dates are rejected.",
+        ),
+    ] = None,
 ) -> None:
     reason = "natural-end"
     if reason_arg and reason_arg.startswith("reason:"):
         reason = reason_arg[len("reason:"):]
-    _run_session(project, topic, "close", reason=reason)
+    _run_session(project, topic, "close", reason=reason, date_str=date_str)
     _emit_judgment_skill("session-closer", project, topic)
 
 

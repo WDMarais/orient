@@ -10,7 +10,7 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
-from orient.lib.note_parser import find_latest_note, parse_sections, count_bullets
+from orient.lib.note_parser import parse_sections, count_bullets
 
 
 def route(
@@ -18,13 +18,18 @@ def route(
     topic: str,
     mode: str,       # "checkpoint" | "close"
     note_root: Path,
+    target_date: str | None = None,
 ) -> dict[str, Any]:
     """Return routing dict consumed by orient.preflight.
 
     Keys: mode, prev_path, pending_count, deferred_count,
           append_line, append_pass, error, note_path, called_at.
+
+    target_date (YYYY-MM-DD) overrides the written date for backdating: the note
+    filename and rollforward resolve relative to it, not the system clock. The
+    intra-note capture time (called_at) stays real.
     """
-    today = date.today().strftime("%Y-%m-%d")
+    today = target_date or date.today().strftime("%Y-%m-%d")
     called_at = datetime.now().strftime("%H:%M")
     topic_dir = note_root / project / topic
     today_path = topic_dir / f"{today}.md"
@@ -76,9 +81,9 @@ def route(
                 "append_line": None,
                 "append_pass": None,
             }
-        prev = find_latest_note(note_root, project, topic)
-        # find_latest_note returns any note including today's; we want prev excl today
-        prev_excl = _find_latest_excl(note_root, project, topic, today)
+        # We want the note that precedes the target date (strictly before it), not
+        # the latest overall — so a backdated close rolls forward from the right note.
+        prev_excl = _find_latest_before(note_root, project, topic, today)
         return {
             "mode": "append",
             "note_path": str(today_path),
@@ -92,7 +97,7 @@ def route(
         }
 
     # No today note - check for previous
-    prev = _find_latest_excl(note_root, project, topic, today)
+    prev = _find_latest_before(note_root, project, topic, today)
     if prev is None:
         return {
             "mode": "no-prev",
@@ -140,13 +145,19 @@ def route(
     }
 
 
-def _find_latest_excl(note_root: Path, project: str, topic: str, exclude_date: str) -> Path | None:
-    """Return most recent note excluding a specific date."""
+def _find_latest_before(note_root: Path, project: str, topic: str, before_date: str) -> Path | None:
+    """Return the most recent note strictly before before_date.
+
+    Excludes before_date itself and any later-dated notes, so a backdated close
+    (--date) rolls forward from the note that actually preceded that date rather than
+    the latest note overall. For the common case (before_date = today, no future
+    notes) this is identical to "latest excluding today".
+    """
     topic_dir = note_root / project / topic
     if not topic_dir.is_dir():
         return None
     notes = sorted(
         p for p in topic_dir.glob("????-??-??.md")
-        if p.stem != exclude_date
+        if p.stem < before_date
     )
     return notes[-1] if notes else None

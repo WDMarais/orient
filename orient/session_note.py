@@ -218,17 +218,30 @@ def run_session_note(
     mode: str,
     orient_root: Path,
     reason: str = "natural-end",
+    target_date: Optional[str] = None,
 ) -> None:
-    """Run preflight, scaffold note, print path + context for in-conversation LLM."""
-    preflight = run_preflight(project, topic, mode, orient_root)
+    """Run preflight, scaffold note, print path + context for in-conversation LLM.
+
+    target_date (YYYY-MM-DD) backdates the note: it sets the written date (filename +
+    header) and resolves rollforward from the note before that date. Intra-note
+    timestamps stay real; a future date is rejected.
+    """
+    today = date.today().isoformat()
+    if target_date is None:
+        target_date = today
+    if target_date > today:
+        print(f"orient session: error:future-date given:{target_date} today:{today}", file=sys.stderr)
+        sys.exit(1)
+
+    preflight = run_preflight(project, topic, mode, orient_root, target_date=target_date)
 
     if preflight.mode.startswith("error") or preflight.mode == "ambiguous":
         print(f"orient session: {preflight.error or preflight.mode}", file=sys.stderr)
         sys.exit(1)
 
-    today = date.today().isoformat()
+    note_date = target_date
     note_path = Path(preflight.note_path) if preflight.note_path else (
-        topic_dir(orient_root, project, topic) / f"{today}.md"
+        topic_dir(orient_root, project, topic) / f"{note_date}.md"
     )
     note_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -242,7 +255,7 @@ def run_session_note(
             return
 
         prev_parsed = _load_prev(preflight.prev_path)
-        _write_skeleton(note_path, project, topic, today, reason=None, prev_parsed=prev_parsed)
+        _write_skeleton(note_path, project, topic, note_date, reason=None, prev_parsed=prev_parsed)
         print(f"note: {note_path}")
         if prev_parsed and preflight.prev_path:
             print("\n--- previous note ---")
@@ -259,14 +272,14 @@ def run_session_note(
             print(note_path.read_text())
         else:
             prev_parsed = _load_prev(preflight.prev_path)
-            _write_skeleton(note_path, project, topic, today, reason=reason, prev_parsed=prev_parsed)
+            _write_skeleton(note_path, project, topic, note_date, reason=reason, prev_parsed=prev_parsed)
             print(f"note: {note_path}")
             if prev_parsed and preflight.prev_path:
                 print("\n--- previous note ---")
                 print(Path(preflight.prev_path).read_text())
                 print("---")
 
-        print("\n" + _session_close_priming(orient_root, project, topic, today, note_path.parent))
+        print("\n" + _session_close_priming(orient_root, project, topic, note_date, note_path.parent))
 
 
 # Close reasons that warrant a flag when resuming a topic.
