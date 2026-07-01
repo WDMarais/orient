@@ -202,6 +202,29 @@ here; port into the SRS pipeline (`## Calls` → card is the natural intake).
   enough. Lean on self-decaying timestamped signals over manual pruning. Watch the
   abandoned-but-not-archived leak.
 
+*Substrate-reasoning cluster (from the srs-tool / Bitter Lesson thread — scale vs.
+structure, not coordination):*
+
+- **Which of search/learning does this substrate scale?** *Cue:* deciding whether to
+  lean on raw scale/compute or on hand-built structure for some agent or substrate.
+  *Card:* identify the substrate's scalable resource — if it's compute (frontier
+  training), lean into search/learning and the Bitter Lesson applies; if it's fixed
+  (a human's working memory, a single LLM session), the scalable resource is
+  accumulated cache, so offload to structure. *Boundary:* the two aren't symmetric —
+  don't apply frontier "just scale it" logic to a fixed-compute substrate.
+- **Is this reward signal manufacturable at scale?** *Cue:* considering whether to
+  automate / RL / self-play a task. *Card:* the scale-eats-knowledge engine wins where
+  a clean cheap reward exists (verifiable domains — code, formal math) and stalls where
+  it doesn't (taste, pedagogy, open judgment); the bottleneck is the reward, not the
+  compute. *Boundary:* an enumerable/verifiable domain is exactly where hand-authoring
+  is both most tractable *and* most automatable — double-edged.
+- **Working memory degrades with load on every substrate.** *Cue:* tempted to fix a
+  context/attention problem by enlarging the window or holding more at once. *Card:*
+  working memory is the permanently-scarce resource on every substrate that matters
+  (human brain, single LLM session); offload to external cache and scope the task.
+  *Boundary:* bigger *nominal* capacity (a 10M window) doesn't remove the need —
+  effective reasoning-per-token still falls with fill.
+
 ---
 
 ## Open questions (the decay knobs)
